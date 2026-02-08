@@ -719,6 +719,9 @@
         "inst_hier_path": "axi_uartlite_0",
         "has_run_ip_tcl": "true",
         "parameters": {
+          "C_BAUDRATE": {
+            "value": "115200"
+          },
           "UARTLITE_BOARD_INTERFACE": {
             "value": "usb_uart"
           },
