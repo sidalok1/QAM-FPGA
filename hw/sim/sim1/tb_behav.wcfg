@@ -11,15 +11,15 @@
       </db_ref>
    </db_ref_list>
    <zoom_setting>
-      <ZoomStartTime time="0.000 ns"></ZoomStartTime>
-      <ZoomEndTime time="139.701 ns"></ZoomEndTime>
-      <Cursor1Time time="0.000 ns"></Cursor1Time>
+      <ZoomStartTime time="0.000000 us"></ZoomStartTime>
+      <ZoomEndTime time="3,445.000001 us"></ZoomEndTime>
+      <Cursor1Time time="0.000000 us"></Cursor1Time>
    </zoom_setting>
    <column_width_setting>
       <NameColumnWidth column_width="261"></NameColumnWidth>
-      <ValueColumnWidth column_width="89"></ValueColumnWidth>
+      <ValueColumnWidth column_width="81"></ValueColumnWidth>
    </column_width_setting>
-   <WVObjectSize size="53" />
+   <WVObjectSize size="52" />
    <wvobject fp_name="/tb/clk" type="logic">
       <obj_property name="ElementShortName">clk</obj_property>
       <obj_property name="ObjectShortName">clk</obj_property>
@@ -45,7 +45,7 @@
       <obj_property name="radix_otherWidth">0</obj_property>
       <obj_property name="WaveformStyle">STYLE_ANALOG</obj_property>
       <obj_property name="CellHeight">100</obj_property>
-      <obj_property name="AnalogYRangeType">ANALOG_YRANGETYPE_FIXED</obj_property>
+      <obj_property name="AnalogYRangeType">ANALOG_YRANGETYPE_AUTO</obj_property>
       <obj_property name="AnalogYRangeMin">-1.000000</obj_property>
       <obj_property name="AnalogYRRangeMax">1.000000</obj_property>
       <obj_property name="AnalogInterpolation">ANALOG_INTERPOLATION_HOLD</obj_property>
@@ -63,7 +63,7 @@
       <obj_property name="CellHeight">100</obj_property>
       <obj_property name="AnalogYRangeType">ANALOG_YRANGETYPE_FIXED</obj_property>
       <obj_property name="AnalogYRangeMin">0.000000</obj_property>
-      <obj_property name="AnalogYRRangeMax">1.000000</obj_property>
+      <obj_property name="AnalogYRRangeMax">2.000000</obj_property>
       <obj_property name="AnalogInterpolation">ANALOG_INTERPOLATION_HOLD</obj_property>
       <obj_property name="AnalogOffscale">ANALOG_OFFSCALE_HIDE</obj_property>
       <obj_property name="AnalogHorizLine">0.000000</obj_property>
@@ -77,7 +77,7 @@
       <obj_property name="radix_otherWidth">0</obj_property>
       <obj_property name="WaveformStyle">STYLE_ANALOG</obj_property>
       <obj_property name="CellHeight">100</obj_property>
-      <obj_property name="AnalogYRangeType">ANALOG_YRANGETYPE_FIXED</obj_property>
+      <obj_property name="AnalogYRangeType">ANALOG_YRANGETYPE_AUTO</obj_property>
       <obj_property name="AnalogYRangeMin">0.000000</obj_property>
       <obj_property name="AnalogYRRangeMax">2.000000</obj_property>
       <obj_property name="AnalogInterpolation">ANALOG_INTERPOLATION_HOLD</obj_property>
@@ -165,18 +165,18 @@
       <obj_property name="ObjectShortName">current_bit</obj_property>
    </wvobject>
    <wvobject fp_name="/tb/UUT1/jdx" type="array">
-      <obj_property name="ElementShortName">jdx[31:0]</obj_property>
-      <obj_property name="ObjectShortName">jdx[31:0]</obj_property>
+      <obj_property name="ElementShortName">jdx[6:0]</obj_property>
+      <obj_property name="ObjectShortName">jdx[6:0]</obj_property>
       <obj_property name="Radix">UNSIGNEDDECRADIX</obj_property>
    </wvobject>
    <wvobject fp_name="/tb/UUT1/idx" type="array">
-      <obj_property name="ElementShortName">idx[31:0]</obj_property>
-      <obj_property name="ObjectShortName">idx[31:0]</obj_property>
+      <obj_property name="ElementShortName">idx[10:0]</obj_property>
+      <obj_property name="ObjectShortName">idx[10:0]</obj_property>
       <obj_property name="Radix">SIGNEDDECRADIX</obj_property>
    </wvobject>
    <wvobject fp_name="/tb/UUT1/idx_max_val" type="array">
-      <obj_property name="ElementShortName">idx_max_val[31:0]</obj_property>
-      <obj_property name="ObjectShortName">idx_max_val[31:0]</obj_property>
+      <obj_property name="ElementShortName">idx_max_val[10:0]</obj_property>
+      <obj_property name="ObjectShortName">idx_max_val[10:0]</obj_property>
       <obj_property name="Radix">UNSIGNEDDECRADIX</obj_property>
    </wvobject>
    <wvobject fp_name="/tb/UUT1/current_symbol" type="array">
@@ -208,11 +208,6 @@
       <obj_property name="ObjectShortName">s_axis_tdata[31:0]</obj_property>
       <obj_property name="Radix">ASCIIRADIX</obj_property>
    </wvobject>
-   <wvobject fp_name="/tb/UUT1/s_axis_tkeep" type="array">
-      <obj_property name="ElementShortName">s_axis_tkeep[3:0]</obj_property>
-      <obj_property name="ObjectShortName">s_axis_tkeep[3:0]</obj_property>
-      <obj_property name="Radix">BINARYRADIX</obj_property>
-   </wvobject>
    <wvobject fp_name="/tb/UUT1/s_axis_tlast" type="logic">
       <obj_property name="ElementShortName">s_axis_tlast</obj_property>
       <obj_property name="ObjectShortName">s_axis_tlast</obj_property>
@@ -231,8 +226,8 @@
       <obj_property name="Radix">BINARYRADIX</obj_property>
    </wvobject>
    <wvobject fp_name="/tb/UUT1/message_buffer" type="array">
-      <obj_property name="ElementShortName">message_buffer[0:255]</obj_property>
-      <obj_property name="ObjectShortName">message_buffer[0:255]</obj_property>
+      <obj_property name="ElementShortName">message_buffer[0:2047]</obj_property>
+      <obj_property name="ObjectShortName">message_buffer[0:2047]</obj_property>
       <obj_property name="Radix">ASCIIRADIX</obj_property>
    </wvobject>
    <wvobject fp_name="/tb/UUT1/tx_len" type="array">

@@ -363,7 +363,7 @@ module Radio(
     
     always @ ( posedge clk ) if ( en ) begin
         mod_out <= modulation_product >>> symb_frac;
-        offset <= mod_out + symb_one + symb_half;
+        offset <= {~mod_out[symb_width-1], mod_out[symb_width-2:0]};
         adc_offset <= adc_increased_bits - 14'h0800;
     end
     
