@@ -15,7 +15,6 @@
         "carrier_frq": [ { "value": "1000000", "resolve_type": "user", "format": "long", "usage": "all" } ],
         "baud_rate": [ { "value": "50000", "resolve_type": "user", "format": "long", "usage": "all" } ],
         "sync_len": [ { "value": "32", "resolve_type": "user", "format": "long", "usage": "all" } ],
-        "adc_spl_rate": [ { "value": "3000000", "resolve_type": "user", "format": "long", "usage": "all" } ],
         "Component_Name": [ { "value": "system_Radio_0_0", "resolve_type": "user", "usage": "all" } ]
       },
       "model_parameters": {
@@ -25,8 +24,7 @@
         "spl_rate": [ { "value": "6000000", "resolve_type": "generated", "format": "long", "usage": "all" } ],
         "carrier_frq": [ { "value": "1000000", "resolve_type": "generated", "format": "long", "usage": "all" } ],
         "baud_rate": [ { "value": "50000", "resolve_type": "generated", "format": "long", "usage": "all" } ],
-        "sync_len": [ { "value": "32", "resolve_type": "generated", "format": "long", "usage": "all" } ],
-        "adc_spl_rate": [ { "value": "3000000", "resolve_type": "generated", "format": "long", "usage": "all" } ]
+        "sync_len": [ { "value": "32", "resolve_type": "generated", "format": "long", "usage": "all" } ]
       },
       "project_parameters": {
         "ARCHITECTURE": [ { "value": "artix7" } ],
@@ -55,9 +53,11 @@
     "boundary": {
       "ports": {
         "DAC_O": [ { "direction": "out", "size_left": "7", "size_right": "0" } ],
-        "CS_O": [ { "direction": "out" } ],
-        "SCK_O": [ { "direction": "out" } ],
-        "SDO_I": [ { "direction": "in" } ],
+        "ADC_I": [ { "direction": "in", "size_left": "9", "size_right": "0" } ],
+        "ADC_OVF_I": [ { "direction": "in" } ],
+        "ADC_N_EN_O": [ { "direction": "out" } ],
+        "ADC_SHDN_O": [ { "direction": "out" } ],
+        "ADC_CLK_O": [ { "direction": "out" } ],
         "LED_O": [ { "direction": "out", "size_left": "1", "size_right": "0" } ],
         "s_axis_tdata": [ { "direction": "in", "size_left": "31", "size_right": "0", "driver_value": "0" } ],
         "s_axis_tlast": [ { "direction": "in", "driver_value": "0" } ],
