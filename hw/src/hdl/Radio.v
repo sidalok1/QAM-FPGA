@@ -1,8 +1,12 @@
 module Radio(
     output wire [7:0] DAC_O,
-    output wire CS_O,
-    output wire SCK_O,
-    input wire SDO_I,
+    
+    input wire [9:0] ADC_I,
+    input wire ADC_OVF_I,
+    output wire ADC_N_EN_O,
+    output wire ADC_SHDN_O,
+    output wire ADC_CLK_O,
+    
     output wire [1:0] LED_O,
     
     input wire [31:0]                       s_axis_tdata,
@@ -180,37 +184,52 @@ module Radio(
     
     //  Receiver code
     
+//    assign {ADC_N_EN_O, ADC_SHDN_O} = 0;
     
-    wire [11:0] adc_out;
+//    wire [11:0] adc_out;
     
-    parameter adc_spl_rate = 3_000_000;
+//    parameter adc_spl_rate = 3_000_000;
     
-    max11108_controller adc_controller (
+//    max11108_controller adc_controller (
+//        .clk(clk),
+//        .rst(0),
+//        .en(1),
+//        .din(SDO_I),
+//        .dout(adc_out),
+//        .sclk(SCK_O),
+//        .cs(CS_O)
+//    );
+    
+    wire signed [symb_width-1:0] adc_data;
+    PMOD9200 #(
+        .I_CLK_FRQ(clk_freq),
+        .S_CLK_FRQ(spl_rate),
+        .DWIDTH(symb_width),
+        .DFRAC(symb_frac)
+    ) adc_controller (
         .clk(clk),
         .rst(0),
         .en(1),
-        .din(SDO_I),
-        .dout(adc_out),
-        .sclk(SCK_O),
-        .cs(CS_O)
+        .adc_din(ADC_I),
+        .dout(adc_data),
+        .adc_clk(ADC_CLK_O),
+        .adc_n_en(ADC_N_EN_O),
+        .adc_shdn(ADC_SHDN_O)
     );
     
-    wire [13:0] adc_increased_bits = {2'b0, adc_out};
-    reg signed [13:0] adc_offset = 0;
-    wire signed [13:0] upsampled_out;
     
-    Upsample #(
-        .OUT_RATE(spl_rate),
-        .IN_RATE(adc_spl_rate),
-        .SYMBOL_WIDTH(symb_width)
-    ) adc_samplerate_converter (
-        .clk(clk),
-        .en(1),
-        .rst(0),
-        .new_sample(new_sample),
-        .i_sample(adc_offset),
-        .o_sample(upsampled_out)
-    );
+//    Upsample #(
+//        .OUT_RATE(spl_rate),
+//        .IN_RATE(adc_spl_rate),
+//        .SYMBOL_WIDTH(symb_width)
+//    ) adc_samplerate_converter (
+//        .clk(clk),
+//        .en(1),
+//        .rst(0),
+//        .new_sample(new_sample),
+//        .i_sample(adc_offset),
+//        .o_sample(upsampled_out)
+//    );
     
     wire signed [13:0] filtered_adc;
     FIR #(
@@ -223,7 +242,7 @@ module Radio(
         .en(1),
         .rst(0),
         .new_sample(new_sample),
-        .i_sample(upsampled_out),
+        .i_sample(adc_data),
         .o_sample(filtered_adc)
     );
     
@@ -361,10 +380,27 @@ module Radio(
         .new_bit(new_bit)
     );
     
+    ila_0 signal_analyzer (
+        .clk(clk), // input wire clk
+    
+    
+        .probe0(ac_signal), // input wire [13:0]  probe0  
+        .probe1(agc_out), // input wire [13:0]  probe1 
+        .probe2(filtered_in_phase), // input wire [13:0]  probe2 
+        .probe3(signal_detected), // input wire [0:0]  probe3 
+        .probe4(new_sample), // input wire [0:0]  probe4
+        .probe5(SYMBGEN.in_bit),
+        .probe6(new_bit),
+        .probe7({msg_found, inv_msg_found}),
+        .probe8(SYMBGEN.rx_state),
+        .probe9(SYMBGEN.code),
+        .probe10(SYMBGEN.rx_len)
+    );
+    
     always @ ( posedge clk ) if ( en ) begin
         mod_out <= modulation_product >>> symb_frac;
-        offset <= mod_out + symb_one + symb_half;
-        adc_offset <= adc_increased_bits - 14'h0800;
+        offset <= {~mod_out[symb_width-1], mod_out[symb_width-2:0]};
+
     end
     
     

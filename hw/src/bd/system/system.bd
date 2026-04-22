@@ -1,7 +1,7 @@
 {
   "design": {
     "design_info": {
-      "boundary_crc": "0x793E8C1021D0A360",
+      "boundary_crc": "0x64912E69388135FD",
       "device": "xc7a35tcpg236-1",
       "name": "system",
       "rev_ctrl_bd_flag": "RevCtrlBdOff",
@@ -43,9 +43,6 @@
       }
     },
     "ports": {
-      "cs": {
-        "direction": "O"
-      },
       "dac": {
         "direction": "O",
         "left": "7",
@@ -56,7 +53,7 @@
         "left": "1",
         "right": "0"
       },
-      "reset": {
+      "reset_0": {
         "type": "rst",
         "direction": "I",
         "parameters": {
@@ -69,22 +66,16 @@
           }
         }
       },
-      "sclk": {
-        "direction": "O"
-      },
-      "sdo": {
-        "direction": "I"
-      },
-      "sysclk": {
+      "sys_clock": {
         "type": "clk",
         "direction": "I",
         "parameters": {
           "CLK_DOMAIN": {
-            "value": "system_sysclk",
+            "value": "system_sys_clock",
             "value_src": "default"
           },
           "FREQ_HZ": {
-            "value": "12000000"
+            "value": "100000000"
           },
           "FREQ_TOLERANCE_HZ": {
             "value": "0",
@@ -98,6 +89,37 @@
             "value": "0.0"
           }
         }
+      },
+      "adc": {
+        "type": "data",
+        "direction": "I",
+        "left": "9",
+        "right": "0",
+        "parameters": {
+          "LAYERED_METADATA": {
+            "value": "undef",
+            "value_src": "default"
+          }
+        }
+      },
+      "adc_ovf": {
+        "type": "data",
+        "direction": "I",
+        "parameters": {
+          "LAYERED_METADATA": {
+            "value": "undef",
+            "value_src": "default"
+          }
+        }
+      },
+      "adc_clk": {
+        "direction": "O"
+      },
+      "adc_n_en": {
+        "direction": "O"
+      },
+      "adc_shdn": {
+        "direction": "O"
       }
     },
     "components": {
@@ -263,14 +285,34 @@
             "left": "7",
             "right": "0"
           },
-          "CS_O": {
+          "ADC_I": {
+            "direction": "I",
+            "left": "9",
+            "right": "0",
+            "parameters": {
+              "LAYERED_METADATA": {
+                "value": "undef",
+                "value_src": "default_prop"
+              }
+            }
+          },
+          "ADC_OVF_I": {
+            "direction": "I",
+            "parameters": {
+              "LAYERED_METADATA": {
+                "value": "undef",
+                "value_src": "default_prop"
+              }
+            }
+          },
+          "ADC_N_EN_O": {
             "direction": "O"
           },
-          "SCK_O": {
+          "ADC_SHDN_O": {
             "direction": "O"
           },
-          "SDO_I": {
-            "direction": "I"
+          "ADC_CLK_O": {
+            "direction": "O"
           },
           "LED_O": {
             "direction": "O",
@@ -320,31 +362,40 @@
         "has_run_ip_tcl": "true",
         "parameters": {
           "CLKIN1_JITTER_PS": {
-            "value": "833.33"
+            "value": "100.0"
           },
           "CLKOUT1_JITTER": {
-            "value": "478.350"
+            "value": "238.257"
           },
           "CLKOUT1_PHASE_ERROR": {
-            "value": "693.818"
+            "value": "300.046"
           },
           "CLKOUT1_REQUESTED_OUT_FREQ": {
             "value": "96"
           },
+          "CLK_IN1_BOARD_INTERFACE": {
+            "value": "sys_clock"
+          },
           "MMCM_CLKFBOUT_MULT_F": {
-            "value": "64.000"
+            "value": "51.000"
           },
           "MMCM_CLKIN1_PERIOD": {
-            "value": "83.333"
+            "value": "10.000"
           },
           "MMCM_CLKIN2_PERIOD": {
-            "value": "10.0"
+            "value": "10.000"
           },
           "MMCM_CLKOUT0_DIVIDE_F": {
-            "value": "8.000"
+            "value": "10.625"
           },
-          "PRIM_IN_FREQ": {
-            "value": "12"
+          "MMCM_DIVCLK_DIVIDE": {
+            "value": "5"
+          },
+          "RESET_BOARD_INTERFACE": {
+            "value": "reset"
+          },
+          "USE_BOARD_FLOW": {
+            "value": "true"
           },
           "USE_LOCKED": {
             "value": "false"
@@ -709,7 +760,15 @@
         "xci_name": "system_rst_clk_wiz_0_96M_0",
         "xci_path": "ip\\system_rst_clk_wiz_0_96M_0\\system_rst_clk_wiz_0_96M_0.xci",
         "inst_hier_path": "rst_clk_wiz_0_96M",
-        "has_run_ip_tcl": "true"
+        "has_run_ip_tcl": "true",
+        "parameters": {
+          "RESET_BOARD_INTERFACE": {
+            "value": "reset"
+          },
+          "USE_BOARD_FLOW": {
+            "value": "true"
+          }
+        }
       },
       "axi_uartlite_0": {
         "vlnv": "xilinx.com:ip:axi_uartlite:2.0",
@@ -722,6 +781,9 @@
           "C_BAUDRATE": {
             "value": "115200"
           },
+          "C_S_AXI_ACLK_FREQ_HZ": {
+            "value": "96000000"
+          },
           "UARTLITE_BOARD_INTERFACE": {
             "value": "usb_uart"
           },
@@ -733,8 +795,8 @@
       "axi_smc": {
         "vlnv": "xilinx.com:ip:smartconnect:1.0",
         "ip_revision": "27",
-        "xci_name": "system_axi_smc_0",
-        "xci_path": "ip\\system_axi_smc_0\\system_axi_smc_0.xci",
+        "xci_name": "system_axi_smc_1",
+        "xci_path": "ip\\system_axi_smc_1\\system_axi_smc_1.xci",
         "inst_hier_path": "axi_smc",
         "has_run_ip_tcl": "true",
         "parameters": {
@@ -854,10 +916,22 @@
       }
     },
     "nets": {
-      "Radio_0_CS_O": {
+      "Radio_0_ADC_CLK_O": {
         "ports": [
-          "Radio_0/CS_O",
-          "cs"
+          "Radio_0/ADC_CLK_O",
+          "adc_clk"
+        ]
+      },
+      "Radio_0_ADC_N_EN_O": {
+        "ports": [
+          "Radio_0/ADC_N_EN_O",
+          "adc_n_en"
+        ]
+      },
+      "Radio_0_ADC_SHDN_O": {
+        "ports": [
+          "Radio_0/ADC_SHDN_O",
+          "adc_shdn"
         ]
       },
       "Radio_0_DAC_O": {
@@ -872,10 +946,16 @@
           "led"
         ]
       },
-      "Radio_0_SCK_O": {
+      "adc_1": {
         "ports": [
-          "Radio_0/SCK_O",
-          "sclk"
+          "adc",
+          "Radio_0/ADC_I"
+        ]
+      },
+      "adc_ovf_1": {
+        "ports": [
+          "adc_ovf",
+          "Radio_0/ADC_OVF_I"
         ]
       },
       "mdm_1_debug_sys_rst": {
@@ -887,17 +967,17 @@
       "microblaze_0_Clk": {
         "ports": [
           "clk_wiz_0/clk_out1",
-          "Radio_0/aclk",
           "microblaze_0/Clk",
           "microblaze_0_local_memory/LMB_Clk",
+          "axi_uartlite_0/s_axi_aclk",
           "rst_clk_wiz_0_96M/slowest_sync_clk",
           "axi_smc/aclk",
-          "axi_uartlite_0/s_axi_aclk"
+          "Radio_0/aclk"
         ]
       },
-      "reset_1": {
+      "reset_0_1": {
         "ports": [
-          "reset",
+          "reset_0",
           "clk_wiz_0/reset",
           "rst_clk_wiz_0_96M/ext_reset_in"
         ]
@@ -921,15 +1001,9 @@
           "axi_smc/aresetn"
         ]
       },
-      "sdo_1": {
+      "sys_clock_1": {
         "ports": [
-          "sdo",
-          "Radio_0/SDO_I"
-        ]
-      },
-      "sysclk_1": {
-        "ports": [
-          "sysclk",
+          "sys_clock",
           "clk_wiz_0/clk_in1"
         ]
       }
@@ -947,7 +1021,7 @@
               "SEG_dlmb_bram_if_cntlr_Mem": {
                 "address_block": "/microblaze_0_local_memory/dlmb_bram_if_cntlr/SLMB/Mem",
                 "offset": "0x00000000",
-                "range": "64K",
+                "range": "32K",
                 "offset_high_param": "C_HIGHADDR"
               }
             }
@@ -957,7 +1031,7 @@
               "SEG_ilmb_bram_if_cntlr_Mem": {
                 "address_block": "/microblaze_0_local_memory/ilmb_bram_if_cntlr/SLMB/Mem",
                 "offset": "0x00000000",
-                "range": "64K",
+                "range": "32K",
                 "offset_high_param": "C_HIGHADDR"
               }
             }

@@ -290,8 +290,8 @@ module Controller
       end
     endcase
     
-    msg_found <= ( code == start_code ) ? 1 : 0;
-    inv_msg_found <= ( code == ~start_code ) ? 1 : 0;
+    // msg_found <= ( code == start_code ) ? 1 : 0;
+    // inv_msg_found <= ( code == ~start_code ) ? 1 : 0;
   end
   
   reg [SYMBOL_WIDTH-1:0] current_symbol;
@@ -308,7 +308,7 @@ module Controller
       end            
       STARTCODE: begin  
         current_bit     = start_code[idx];
-        idx_max_val     = 11;
+        idx_max_val     = 10;
         tx_next         = MSGLEN;
       end
       MSGLEN: begin
@@ -323,7 +323,7 @@ module Controller
       end
       POSTSYNC: begin
         current_bit     = idx % 2;
-        idx_max_val     = SYNC_LEN - 1;
+        idx_max_val     = (SYNC_LEN/2) - 1;
         if ( s_axis_tvalid ) begin
           tx_next     = AXI_RX;
         end else
