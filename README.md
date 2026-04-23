@@ -5,6 +5,7 @@ This project was inspired by DSP subsystem that is a part of the Wireless RF and
 - 1MHz carrier frequency
 - 6MHz sample rate
 - BPSK modulation scheme
+
 This implementation more or less makes use of the same algorithms as the WRAP system, but some of the differences are as listed below:
 - All algorithms implemented in Verilog as opposed to C
 - All processing is done in real time, sample by sample
