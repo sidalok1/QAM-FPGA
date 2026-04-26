@@ -379,7 +379,7 @@ def write_mem_file(arr: np.ndarray, word_len: int, frac_len: int, outfile: str, 
   if complex:
     r = arr_to_bin(arr.real, word_len, frac_len)
     i = arr_to_bin(arr.imag, word_len, frac_len)
-    lines = [r[n] + ' ' + i[n] + '\n' for n in range(len(r))]
+    lines = [r[n] + i[n] + '\n' for n in range(len(r))]
   else:
     lines = arr_to_bin(arr, word_len, frac_len)
     for i in range(len(lines)):

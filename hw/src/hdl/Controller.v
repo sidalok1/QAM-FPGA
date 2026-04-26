@@ -1,16 +1,19 @@
 module Controller
 #(
   //  Total word length of the output symbols
-  parameter DWIDTH                      = 16,
+  parameter DWIDTH                      = 10,
+  parameter DFRAC                       = 8,
   //  Number of symbols in constellation
   parameter MODULATION_ORDER                  = 16,
   //  File containing constellation symbols in order,
   parameter CONSTELLATION                     = "const.mem", 
+  parameter ZADOFF_CHU_SEQ                    = "zadoff_chu.mem",
   //  Output sample rate in hertz
-  parameter SAMPLE_RATE                       = 6_000_000,
+  parameter SAMPLE_RATE                       = 5_000_000,
   //  Symbol rate in hertz, together with last value determin sps
   parameter SYMBOL_RATE                       = 50_000,
-  parameter SYNC_LEN                          = 32
+  parameter SYNC_LEN                          = 16,
+  parameter EQ_LEN                            = 32
 )
 (
   //  Input clock, should be at the frequency specified by parameter
@@ -41,42 +44,46 @@ module Controller
   output reg                              interrupt,
   
   //  Controller also receives information from receiver hardware
-  input wire                              new_bit,
-  input wire                              rx_bit,
-  output reg                              msg_found,
-  output reg                              inv_msg_found
+  input wire                              new_symbol,
+  input wire                              rx_symbol
 );
   
   initial begin
     I               = 0;
     Q               = 0;
-    msg_found       = 0;
-    inv_msg_found   = 0;
-    s_axis_tready = 0;
-    m_axis_tdata = 0;
+    s_axis_tready   = 0;
+    m_axis_tdata    = 0;
   //        m_axis_tkeep = 0;
-    m_axis_tlast = 0;
-    m_axis_tvalid = 0;
-    interrupt = 0;
+    m_axis_tlast    = 0;
+    m_axis_tvalid   = 0;
+    interrupt       = 0;
   end
   
-  localparam MAX_STR_LEN                  = 256;
+  localparam BITS_PER_SYMBOL = $clog2(MODULATION_ORDER);
+
+  localparam MAX_SYMBOLS = 2**(BITS_PER_SYMBOL*4);
+
+
+  localparam MAX_STR_LEN                  = (MAX_SYMBOLS*BITS_PER_SYMBOL)/8;
   localparam STR_BITS                     = MAX_STR_LEN * 8;
   reg [0:STR_BITS-1] message_buffer       = 0;
-  reg [7:0] tx_len                        = 0;
+  reg [$clog2(MAX_STR_LEN)-1:0] tx_bytes  = 0;
+  wire [(BITS_PER_SYMBOL*4)-1:0] tx_len;
+  assign tx_len = (tx_bytes*8) / BITS_PER_SYMBOL;
   // Maximum value of idx before state should change
-  reg [10:0] idx_max_val;
+  integer idx_max_val;
   
-  reg [(DWIDTH-1)*2:0] constellation [0:MODULATION_ORDER-1];
-  reg [(DWIDTH-1)*2:0] zadoff_chu_seq [0:SYNC_LEN-1];
-  localparam BITS_PER_SYMBOL = $clog2(MODULATION_ORDER);
+  reg [(DWIDTH*2)-1:0] constellation [0:MODULATION_ORDER-1];
+  initial $readmemb(CONSTELLATION, constellation);
+  reg [(DWIDTH*2)-1:0] zadoff_chu_seq [0:SYNC_LEN-1];
+  initial $readmemb(ZADOFF_CHU_SEQ, zadoff_chu_seq);
   
   //  Symbols per sample
   localparam integer SPS                  = SAMPLE_RATE / SYMBOL_RATE;
   
   //  General registers used for counting indices
-  reg [10:0] idx                          = 0;
-  reg [$clog2(SPS)-1:0] jdx               = 0;
+  integer idx                             = 0;
+  integer jdx                             = 0;
   
   // FSM state register and state definitions
   localparam tx_STATES                    = 7;
@@ -89,47 +96,31 @@ module Controller
   localparam [tx_STATES-1:0] POSTSYNC     = 'b0100000;
   reg [tx_STATES-1:0] tx_state            = IDLE;
   
-  // Below are combinational block variables used on rhs in clocked block
-  // What sample should register on the sample clock
-  reg [SYMBOL_WIDTH-1:0] sample_select;
-  // Combinational assignment of next state value
+
   reg [tx_STATES-1:0] tx_next, axi_next = IDLE;
   
-  localparam rx_STATES                    = 4;
-  localparam [rx_STATES-1:0] DETECT       = 4'b0001;
-  localparam [rx_STATES-1:0] READLEN      = 4'b0010;
-  localparam [rx_STATES-1:0] READBODY     = 4'b0100;
-  localparam [rx_STATES-1:0] AXI_TX       = 4'b1000;
-  reg [rx_STATES-1:0] rx_state            = DETECT;
+  localparam rx_STATES                    = 3;
+  localparam [rx_STATES-1:0] READLEN      = 3'b001;
+  localparam [rx_STATES-1:0] READBODY     = 3'b010;
+  localparam [rx_STATES-1:0] AXI_TX       = 3'b100;
+  reg [rx_STATES-1:0] rx_state            = READLEN;
 
-  reg invert = 0;
-  wire in_bit = invert == 1 ? ~rx_bit : rx_bit;
   
-  localparam reg [12:0] WRAP_HEADER = 13'b1111100110101;
-  reg [12:0] code           = 0;
+  reg [(BITS_PER_SYMBOL*4)-1:0] rx_len  = 0;
+  wire [$clog2(MAX_STR_LEN)-1:0] rx_bytes;
+  assign rx_bytes = (rx_len*BITS_PER_SYMBOL) / 8;
+  reg [0:STR_BITS-1] rx_buffer = 0;
   
-  reg [7:0] rx_len              = 0;
-  reg [7:0] rx_buffer [0:255];
-  
-  integer i = 0;
-  initial begin
-      for ( i = 0; i < 256; i = i + 1 ) begin
-          rx_buffer[i] = 0;
-      end
-  end
-  
-  reg write_to_buffer                     = 0;
-  reg [7:0] rx_byte                       = 0;
-  reg [7:0] kdx = 0, hdx = 0;
+  integer kdx = 0;
   
   always @ ( posedge clk )
   if ( rst ) begin
       tx_state <= IDLE;
       idx <= 0;
       jdx <= 0;
-      sample <= SYMBOL_ZERO;
+      I <= 0;
+      Q <= 0;
       interrupt <= 0;
-//        rx_state <= DETECT;
   end else
   if ( en ) begin
     s_axis_tready <= 0;
@@ -141,7 +132,7 @@ module Controller
           idx <= 0;
           jdx <= 0;
           s_axis_tready <= 1;
-          tx_len <= 0;
+          tx_bytes <= 0;
         end
       end
       PRESYNC,
@@ -150,7 +141,6 @@ module Controller
       MSGBODY,
       POSTSYNC: begin
         if ( new_sample ) begin
-          sample <= sample_select;
           if ( idx == idx_max_val && jdx == SPS - 1 ) begin
             idx <= 0;
             jdx <= 0;
@@ -158,7 +148,7 @@ module Controller
             if ( tx_next == AXI_RX ) begin
               axi_next <= STARTCODE;
               s_axis_tready <= 1;
-              tx_len <= 0;
+              tx_bytes <= 0;
             end
           end else
           if ( jdx == SPS - 1 ) begin
@@ -172,8 +162,8 @@ module Controller
       AXI_RX: begin
         s_axis_tready <= 1;
         if ( s_axis_tvalid ) begin
-          message_buffer[(tx_len*8)+:8] <= s_axis_tdata[7:0];
-          tx_len <= tx_len + 1;
+          message_buffer[(tx_bytes*8)+:8] <= s_axis_tdata[7:0];
+          tx_bytes <= tx_bytes + 1;
           if ( s_axis_tlast ) begin
             tx_state <= axi_next;
             s_axis_tready <= 0;
@@ -182,132 +172,79 @@ module Controller
       end
     endcase
     
-    msg_found <= 0;
-    inv_msg_found <= 0;
-    
-    write_to_buffer <= 0;
     
     m_axis_tvalid <= 0;
     interrupt <= 0;
     
     case ( rx_state )
-      DETECT: begin
-          if ( new_bit ) begin
-            code[0] <= rx_bit;
-            code[12:1] <= code[11:0];
-          end
-          if ( code[10:0] == start_code ) begin
-            code <= 0;
-            msg_found <= 1;
-            invert <= 0;
-            rx_state <= READLEN;
-          end else
-          if ( code[10:0] == ~start_code ) begin
-            code <= 0;
-            inv_msg_found <= 1;
-            invert <= 1;
-            rx_state <= READLEN;
-          end else
-          if ( code == WRAP_HEADER ) begin
-            code <= 0;
-            msg_found <= 1;
-            invert <= 0;
-            rx_state <= READBODY;
-            rx_len <= 8'd6;
-          end else
-          if ( code == ~WRAP_HEADER ) begin
-            code <= 0;
-            inv_msg_found <= 1;
-            invert <= 1;
-            rx_state <= READBODY;
-            rx_len <= 8'd6;
-          end
-          kdx <= 0;
-      end
       READLEN: begin
-          if ( new_bit ) begin
-            rx_len[0] <= in_bit;
-            rx_len[7:1] <= rx_len[6:0];
-            
-            if ( kdx == 7 ) begin
-              kdx <= 0;
-              hdx <= 0;
+          if ( new_symbol ) begin
+            rx_len[(kdx*BITS_PER_SYMBOL)+:BITS_PER_SYMBOL] <= rx_symbol;
+            if ( kdx == 3 ) begin
               rx_state <= READBODY;
-            end else begin
+              kdx <= 0;
+            end
+            else begin
               kdx <= kdx + 1;
             end
           end
       end
       READBODY: begin
-        if ( new_bit ) begin
-          rx_byte[0] <= in_bit;
-          rx_byte[7:1] <= rx_byte[6:0];
-          
-          if ( kdx == 7 ) begin
-            kdx <= 0;
-            write_to_buffer <= 1; // goes low ever other possible cycle
-          end else begin
-            kdx <= kdx + 1;
-          end
-        end
-          
-        if ( write_to_buffer ) begin
-          rx_buffer[hdx] <= rx_byte;
-          if ( hdx == rx_len - 1 ) begin
-            hdx <= 0;
-            kdx <= 0;
+        if ( new_symbol ) begin
+          rx_buffer[(kdx*BITS_PER_SYMBOL)+:BITS_PER_SYMBOL] <= rx_symbol;
+          if ( kdx == rx_len - 1 ) begin
             rx_state <= AXI_TX;
+            kdx <= 0;
             interrupt <= 1;
-          end else begin
-            hdx <= hdx + 1;
+          end
+          else begin
+            kdx <= kdx + 1;
           end
         end
       end
       AXI_TX: begin
         m_axis_tvalid <= 1;
         if ( m_axis_tready && m_axis_tvalid ) begin
-          m_axis_tvalid <= ( hdx == rx_len ) ? 0 : 1;
-          m_axis_tdata <=  ( hdx == rx_len ) ? 32'b0 : {24'b0, rx_buffer[hdx]};
-          m_axis_tlast <=  ( hdx == rx_len - 1 ) ? 1 : 0;   
-          hdx <=           ( hdx == rx_len ) ? 0 : hdx + 1;
-          rx_state <=      ( hdx == rx_len ) ? DETECT : AXI_TX;
+          m_axis_tvalid <= ( kdx == rx_bytes ) ? 0 : 1;
+          m_axis_tdata <=  ( kdx == rx_bytes ) ? 32'b0 : {24'b0, rx_buffer[kdx*8 +: 8]};
+          m_axis_tlast <=  ( kdx == rx_bytes - 1 ) ? 1 : 0;   
+          kdx <=           ( kdx == rx_bytes ) ? 0 : kdx + 1;
+          rx_state <=      ( kdx == rx_bytes ) ? READLEN : AXI_TX;
         end
       end
     endcase
     
-    // msg_found <= ( code == start_code ) ? 1 : 0;
-    // inv_msg_found <= ( code == ~start_code ) ? 1 : 0;
   end
-  
-  reg [SYMBOL_WIDTH-1:0] current_symbol;
-  reg current_bit;
+
+  localparam [DWIDTH-1:0] ONE = 2**DFRAC;
+  localparam [DWIDTH-1:0] ZERO = 0;
   
   always @* begin
     case ( tx_state )
     // The synchronization is a stream of ones and zeros, which aid both the
     // costas loop and timing error detector.
       PRESYNC: begin 
-        current_bit     = idx % 2;
-        idx_max_val     = SYNC_LEN - 1;
+        {I, Q}          = {ONE, ZERO};
+        idx_max_val     = EQ_LEN - 1;
         tx_next         = STARTCODE;
       end            
       STARTCODE: begin  
-        current_bit     = start_code[idx];
-        idx_max_val     = 10;
+        {I, Q}          = zadoff_chu_seq[idx];
+        idx_max_val     = SYNC_LEN - 1;
         tx_next         = MSGLEN;
       end
       MSGLEN: begin
-        current_bit     = tx_len[7-idx];
-        idx_max_val     = 7;
+        {I, Q}          = constellation[tx_len[(idx*BITS_PER_SYMBOL)+:BITS_PER_SYMBOL]];
+        idx_max_val     = 3;
         tx_next         = MSGBODY;
       end
       MSGBODY: begin
-        current_bit     = message_buffer[idx];
-        idx_max_val     = (tx_len * 8) - 1;
+        {I, Q}          = constellation[message_buffer[(idx*BITS_PER_SYMBOL)+:BITS_PER_SYMBOL]];
+        idx_max_val     = tx_len - 1;
         tx_next         = POSTSYNC;
       end
       POSTSYNC: begin
-        current_bit     = idx % 2;
+        {I, Q}          = {ONE, ZERO};
         idx_max_val     = (SYNC_LEN/2) - 1;
         if ( s_axis_tvalid ) begin
           tx_next     = AXI_RX;
@@ -318,16 +255,11 @@ module Controller
           tx_next         = IDLE;
         end
       end
-      default: begin   
-        current_bit     = 0;
+      default: begin
         idx_max_val     = 0;
         tx_next         = IDLE;
       end
     endcase
-    current_symbol = ( current_bit == 0 ) ? SYMBOL_NEG_ONE : SYMBOL_ONE;
-    // Recall, for upsampling, a new symbol is added only every SPS, and
-    // otherwise is zero
-    sample_select = ( jdx == 0 ) ? current_symbol : SYMBOL_ZERO;
       
   end
 
