@@ -1,9 +1,11 @@
 module Controller
 #(
   //  Total word length of the output symbols
-  parameter SYMBOL_WIDTH                      = 16,
-  //  Length of the fractional portion of a signal
-  parameter SYMBOL_FRAC                       = 14,
+  parameter DWIDTH                      = 16,
+  //  Number of symbols in constellation
+  parameter MODULATION_ORDER                  = 16,
+  //  File containing constellation symbols in order,
+  parameter CONSTELLATION                     = "const.mem", 
   //  Output sample rate in hertz
   parameter SAMPLE_RATE                       = 6_000_000,
   //  Symbol rate in hertz, together with last value determin sps
@@ -21,7 +23,7 @@ module Controller
   input wire                              start,
   input wire                              new_sample,
   //  Output symbols in two's complement form at the requested sample rate
-  output reg signed [SYMBOL_WIDTH-1:0]    sample,
+  output reg signed [DWIDTH-1:0]          I, Q,
   
   //  Axi stream ports
   input wire [31:0]                       s_axis_tdata,
@@ -44,47 +46,30 @@ module Controller
   output reg                              msg_found,
   output reg                              inv_msg_found
 );
-  //  Calculated bitlength of the symbol representing the nonfractional number
-  localparam SYMBOL_WHOLE     = SYMBOL_WIDTH - SYMBOL_FRAC;
-  //  Two's complement symbols parameterized to given bitwidths
-  localparam SYMBOL_ZERO      = {SYMBOL_WIDTH{1'b0}};
-  localparam SYMBOL_ONE       = {{SYMBOL_WHOLE-1{1'b0}}, 1'b1, {SYMBOL_FRAC{1'b0}}};
-  localparam SYMBOL_NEG_ONE   = {{SYMBOL_WHOLE{1'b1}}, {SYMBOL_FRAC{1'b0}}};
   
   initial begin
-    sample          = SYMBOL_ZERO;
+    I               = 0;
+    Q               = 0;
     msg_found       = 0;
     inv_msg_found   = 0;
     s_axis_tready = 0;
     m_axis_tdata = 0;
-//        m_axis_tkeep = 0;
+  //        m_axis_tkeep = 0;
     m_axis_tlast = 0;
     m_axis_tvalid = 0;
     interrupt = 0;
   end
-  /*
-      Memory containing the output message in ascii. This is hard coded but obviously
-      this will ideally not be the case in the future. Should be (relatively) trivial
-      to change this to arbitrary messages. Doing so is out of the scope of this demo
-  */
+  
   localparam MAX_STR_LEN                  = 256;
   localparam STR_BITS                     = MAX_STR_LEN * 8;
   reg [0:STR_BITS-1] message_buffer       = 0;
   reg [7:0] tx_len                        = 0;
   // Maximum value of idx before state should change
   reg [10:0] idx_max_val;
-  /*
-      Presently the matlab simulation uses a message length field to indicate how
-      long the message is. I am leaning toward changing this to a simple barker
-      code at the start and end of the message. The current approach requires the
-      receiver to lock on to the message by the first barker code in order to know
-      when it has received the full message (and can stop listening). Barker codes at
-      either end make it so that the receiver only needs to locked on by the end of
-      the message to know when to stop listening (if the start and stop codes are
-      different). This does add the complexity that we must worry about the stop code
-      appearing in the message.
-  */
-  localparam reg [0:10] start_code  = 11'b11100010010;
+  
+  reg [(DWIDTH-1)*2:0] constellation [0:MODULATION_ORDER-1];
+  reg [(DWIDTH-1)*2:0] zadoff_chu_seq [0:SYNC_LEN-1];
+  localparam BITS_PER_SYMBOL = $clog2(MODULATION_ORDER);
   
   //  Symbols per sample
   localparam integer SPS                  = SAMPLE_RATE / SYMBOL_RATE;
