@@ -12,14 +12,14 @@
    </db_ref_list>
    <zoom_setting>
       <ZoomStartTime time="0.000000 us"></ZoomStartTime>
-      <ZoomEndTime time="6,655.000001 us"></ZoomEndTime>
-      <Cursor1Time time="3,001.000000 us"></Cursor1Time>
+      <ZoomEndTime time="133.900001 us"></ZoomEndTime>
+      <Cursor1Time time="2.639667 us"></Cursor1Time>
    </zoom_setting>
    <column_width_setting>
       <NameColumnWidth column_width="202"></NameColumnWidth>
-      <ValueColumnWidth column_width="138"></ValueColumnWidth>
+      <ValueColumnWidth column_width="130"></ValueColumnWidth>
    </column_width_setting>
-   <WVObjectSize size="41" />
+   <WVObjectSize size="44" />
    <wvobject fp_name="/tb/clk" type="logic">
       <obj_property name="ElementShortName">clk</obj_property>
       <obj_property name="ObjectShortName">clk</obj_property>
@@ -84,6 +84,7 @@
       <obj_property name="ElementShortName">tx_state[6:0]</obj_property>
       <obj_property name="ObjectShortName">tx_state[6:0]</obj_property>
       <obj_property name="Radix">BINARYRADIX</obj_property>
+      <obj_property name="isExpanded"></obj_property>
    </wvobject>
    <wvobject fp_name="/tb/UUT1/message_buffer" type="array">
       <obj_property name="ElementShortName">message_buffer[0:262143]</obj_property>
@@ -253,26 +254,6 @@
       <obj_property name="AnalogHorizLine">0.000000</obj_property>
       <obj_property name="WaveformStyle">STYLE_ANALOG</obj_property>
    </wvobject>
-   <wvobject fp_name="/tb/cordic_modulator/cordic_modulator/x_in" type="array">
-      <obj_property name="ElementShortName">x_in[17:0]</obj_property>
-      <obj_property name="ObjectShortName">x_in[17:0]</obj_property>
-      <obj_property name="Radix">REALRADIX</obj_property>
-      <obj_property name="radix_realType">SIGNEDFIXEDPOINTRADIX</obj_property>
-      <obj_property name="radix_fractionWidth">16</obj_property>
-      <obj_property name="radix_otherWidth">0</obj_property>
-   </wvobject>
-   <wvobject fp_name="/tb/cordic_modulator/cordic_modulator/y_in" type="array">
-      <obj_property name="ElementShortName">y_in[17:0]</obj_property>
-      <obj_property name="ObjectShortName">y_in[17:0]</obj_property>
-      <obj_property name="Radix">REALRADIX</obj_property>
-      <obj_property name="radix_realType">SIGNEDFIXEDPOINTRADIX</obj_property>
-      <obj_property name="radix_fractionWidth">16</obj_property>
-      <obj_property name="radix_otherWidth">0</obj_property>
-   </wvobject>
-   <wvobject fp_name="/tb/cordic_modulator/cordic_modulator/start" type="logic">
-      <obj_property name="ElementShortName">start</obj_property>
-      <obj_property name="ObjectShortName">start</obj_property>
-   </wvobject>
    <wvobject fp_name="/tb/cordic_modulator/cordic_modulator/phase" type="array">
       <obj_property name="ElementShortName">phase[23:0]</obj_property>
       <obj_property name="ObjectShortName">phase[23:0]</obj_property>
@@ -281,36 +262,146 @@
       <obj_property name="radix_fractionWidth">20</obj_property>
       <obj_property name="radix_otherWidth">0</obj_property>
    </wvobject>
-   <wvobject fp_name="/tb/cordic_modulator/cordic_modulator/requested_phase" type="array">
-      <obj_property name="ElementShortName">requested_phase[23:0]</obj_property>
-      <obj_property name="ObjectShortName">requested_phase[23:0]</obj_property>
-      <obj_property name="Radix">REALRADIX</obj_property>
-      <obj_property name="radix_realType">SIGNEDFIXEDPOINTRADIX</obj_property>
-      <obj_property name="radix_fractionWidth">20</obj_property>
-      <obj_property name="radix_otherWidth">0</obj_property>
+   <wvobject type="divider" fp_name="divider698">
+      <obj_property name="label">Channel</obj_property>
+      <obj_property name="DisplayName">label</obj_property>
    </wvobject>
-   <wvobject fp_name="/tb/cordic_modulator/cordic_modulator/x" type="array">
-      <obj_property name="ElementShortName">x[18:0]</obj_property>
-      <obj_property name="ObjectShortName">x[18:0]</obj_property>
+   <wvobject fp_name="/tb/dac_out" type="array">
+      <obj_property name="ElementShortName">dac_out[7:0]</obj_property>
+      <obj_property name="ObjectShortName">dac_out[7:0]</obj_property>
+      <obj_property name="WaveformStyle">STYLE_ANALOG</obj_property>
+      <obj_property name="CellHeight">100</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb/signal" type="array">
+      <obj_property name="ElementShortName">signal[11:0]</obj_property>
+      <obj_property name="ObjectShortName">signal[11:0]</obj_property>
+      <obj_property name="WaveformStyle">STYLE_ANALOG</obj_property>
+      <obj_property name="CellHeight">100</obj_property>
+   </wvobject>
+   <wvobject type="divider" fp_name="divider745">
+      <obj_property name="label">Demodulation</obj_property>
+      <obj_property name="DisplayName">label</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb/I_rx" type="array">
+      <obj_property name="ElementShortName">I_rx[17:0]</obj_property>
+      <obj_property name="ObjectShortName">I_rx[17:0]</obj_property>
       <obj_property name="Radix">REALRADIX</obj_property>
       <obj_property name="radix_realType">SIGNEDFIXEDPOINTRADIX</obj_property>
       <obj_property name="radix_fractionWidth">16</obj_property>
       <obj_property name="radix_otherWidth">0</obj_property>
+      <obj_property name="WaveformStyle">STYLE_ANALOG</obj_property>
+      <obj_property name="CellHeight">100</obj_property>
    </wvobject>
-   <wvobject fp_name="/tb/cordic_modulator/cordic_modulator/y" type="array">
-      <obj_property name="ElementShortName">y[18:0]</obj_property>
-      <obj_property name="ObjectShortName">y[18:0]</obj_property>
+   <wvobject fp_name="/tb/Q_rx" type="array">
+      <obj_property name="ElementShortName">Q_rx[17:0]</obj_property>
+      <obj_property name="ObjectShortName">Q_rx[17:0]</obj_property>
       <obj_property name="Radix">REALRADIX</obj_property>
       <obj_property name="radix_realType">SIGNEDFIXEDPOINTRADIX</obj_property>
       <obj_property name="radix_fractionWidth">16</obj_property>
       <obj_property name="radix_otherWidth">0</obj_property>
+      <obj_property name="WaveformStyle">STYLE_ANALOG</obj_property>
+      <obj_property name="CellHeight">100</obj_property>
    </wvobject>
-   <wvobject fp_name="/tb/cordic_modulator/cordic_modulator/current_phase" type="array">
-      <obj_property name="ElementShortName">current_phase[23:0]</obj_property>
-      <obj_property name="ObjectShortName">current_phase[23:0]</obj_property>
+   <wvobject fp_name="/tb/cordic_demodulator/I_channel_filt/filt_in" type="array">
+      <obj_property name="ElementShortName">filt_in[17:0]</obj_property>
+      <obj_property name="ObjectShortName">filt_in[17:0]</obj_property>
       <obj_property name="Radix">REALRADIX</obj_property>
       <obj_property name="radix_realType">SIGNEDFIXEDPOINTRADIX</obj_property>
-      <obj_property name="radix_fractionWidth">20</obj_property>
+      <obj_property name="radix_fractionWidth">16</obj_property>
       <obj_property name="radix_otherWidth">0</obj_property>
+      <obj_property name="WaveformStyle">STYLE_ANALOG</obj_property>
+      <obj_property name="CellHeight">100</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb/cordic_demodulator/I_channel_filt/filt_out" type="array">
+      <obj_property name="ElementShortName">filt_out[17:0]</obj_property>
+      <obj_property name="ObjectShortName">filt_out[17:0]</obj_property>
+      <obj_property name="Radix">REALRADIX</obj_property>
+      <obj_property name="radix_realType">SIGNEDFIXEDPOINTRADIX</obj_property>
+      <obj_property name="radix_fractionWidth">16</obj_property>
+      <obj_property name="radix_otherWidth">0</obj_property>
+      <obj_property name="WaveformStyle">STYLE_ANALOG</obj_property>
+      <obj_property name="CellHeight">100</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb/cordic_demodulator/I_channel_filt/x" type="array">
+      <obj_property name="ElementShortName">x[0:3][17:0]</obj_property>
+      <obj_property name="ObjectShortName">x[0:3][17:0]</obj_property>
+      <obj_property name="Radix">REALRADIX</obj_property>
+      <obj_property name="radix_realType">SIGNEDFIXEDPOINTRADIX</obj_property>
+      <obj_property name="radix_fractionWidth">16</obj_property>
+      <obj_property name="radix_otherWidth">0</obj_property>
+      <obj_property name="isExpanded"></obj_property>
+      <wvobject fp_name="/tb/cordic_demodulator/I_channel_filt/x[0]" type="array">
+         <obj_property name="ElementShortName">[0][17:0]</obj_property>
+         <obj_property name="ObjectShortName">[0][17:0]</obj_property>
+         <obj_property name="Radix">REALRADIX</obj_property>
+         <obj_property name="radix_realType">SIGNEDFIXEDPOINTRADIX</obj_property>
+         <obj_property name="radix_fractionWidth">16</obj_property>
+         <obj_property name="radix_otherWidth">0</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb/cordic_demodulator/I_channel_filt/x[1]" type="array">
+         <obj_property name="ElementShortName">[1][17:0]</obj_property>
+         <obj_property name="ObjectShortName">[1][17:0]</obj_property>
+         <obj_property name="Radix">REALRADIX</obj_property>
+         <obj_property name="radix_realType">SIGNEDFIXEDPOINTRADIX</obj_property>
+         <obj_property name="radix_fractionWidth">16</obj_property>
+         <obj_property name="radix_otherWidth">0</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb/cordic_demodulator/I_channel_filt/x[2]" type="array">
+         <obj_property name="ElementShortName">[2][17:0]</obj_property>
+         <obj_property name="ObjectShortName">[2][17:0]</obj_property>
+         <obj_property name="Radix">REALRADIX</obj_property>
+         <obj_property name="radix_realType">SIGNEDFIXEDPOINTRADIX</obj_property>
+         <obj_property name="radix_fractionWidth">16</obj_property>
+         <obj_property name="radix_otherWidth">0</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb/cordic_demodulator/I_channel_filt/x[3]" type="array">
+         <obj_property name="ElementShortName">[3][17:0]</obj_property>
+         <obj_property name="ObjectShortName">[3][17:0]</obj_property>
+         <obj_property name="Radix">REALRADIX</obj_property>
+         <obj_property name="radix_realType">SIGNEDFIXEDPOINTRADIX</obj_property>
+         <obj_property name="radix_fractionWidth">16</obj_property>
+         <obj_property name="radix_otherWidth">0</obj_property>
+      </wvobject>
+   </wvobject>
+   <wvobject fp_name="/tb/cordic_demodulator/I_channel_filt/y" type="array">
+      <obj_property name="ElementShortName">y[0:3][17:0]</obj_property>
+      <obj_property name="ObjectShortName">y[0:3][17:0]</obj_property>
+      <obj_property name="Radix">REALRADIX</obj_property>
+      <obj_property name="radix_realType">SIGNEDFIXEDPOINTRADIX</obj_property>
+      <obj_property name="radix_fractionWidth">16</obj_property>
+      <obj_property name="radix_otherWidth">0</obj_property>
+      <obj_property name="isExpanded"></obj_property>
+      <wvobject fp_name="/tb/cordic_demodulator/I_channel_filt/y[0]" type="array">
+         <obj_property name="ElementShortName">[0][17:0]</obj_property>
+         <obj_property name="ObjectShortName">[0][17:0]</obj_property>
+         <obj_property name="Radix">REALRADIX</obj_property>
+         <obj_property name="radix_realType">SIGNEDFIXEDPOINTRADIX</obj_property>
+         <obj_property name="radix_fractionWidth">16</obj_property>
+         <obj_property name="radix_otherWidth">0</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb/cordic_demodulator/I_channel_filt/y[1]" type="array">
+         <obj_property name="ElementShortName">[1][17:0]</obj_property>
+         <obj_property name="ObjectShortName">[1][17:0]</obj_property>
+         <obj_property name="Radix">REALRADIX</obj_property>
+         <obj_property name="radix_realType">SIGNEDFIXEDPOINTRADIX</obj_property>
+         <obj_property name="radix_fractionWidth">16</obj_property>
+         <obj_property name="radix_otherWidth">0</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb/cordic_demodulator/I_channel_filt/y[2]" type="array">
+         <obj_property name="ElementShortName">[2][17:0]</obj_property>
+         <obj_property name="ObjectShortName">[2][17:0]</obj_property>
+         <obj_property name="Radix">REALRADIX</obj_property>
+         <obj_property name="radix_realType">SIGNEDFIXEDPOINTRADIX</obj_property>
+         <obj_property name="radix_fractionWidth">16</obj_property>
+         <obj_property name="radix_otherWidth">0</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb/cordic_demodulator/I_channel_filt/y[3]" type="array">
+         <obj_property name="ElementShortName">[3][17:0]</obj_property>
+         <obj_property name="ObjectShortName">[3][17:0]</obj_property>
+         <obj_property name="Radix">REALRADIX</obj_property>
+         <obj_property name="radix_realType">SIGNEDFIXEDPOINTRADIX</obj_property>
+         <obj_property name="radix_fractionWidth">16</obj_property>
+         <obj_property name="radix_otherWidth">0</obj_property>
+      </wvobject>
    </wvobject>
 </wave_config>

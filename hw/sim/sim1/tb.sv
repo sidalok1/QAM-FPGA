@@ -159,94 +159,34 @@ module tb();
         .new_sample(new_sample),
         .I(I_ps),
         .Q(Q_ps),
-        .R(mod_out)
+        .passband(mod_out)
     );
     
-//    CORDIC_MOD #(
-//        .DWIDTH(symb_width),
-//        .DFRAC(symb_frac),
-//        .SAMPLE_RATE(spl_rate),
-//        .CARRIER_FRQ(carrier_frq/20)
-//    ) cordic_modulator (
-//        .clk(clk),
-//        .rst(rst),
-//        .en(en),
-//        .new_sample(new_sample),
-//        .I(2**symb_frac),
-//        .Q(0),
-//        .R(mod_out)
-//    );
+    wire [7:0] dac_out = mod_out[symb_width -: 8] + 8'hA0;
     
-//    wire signed [symb_width-1:0] ps_out;
-
-//    RRC_Filter #(
-//        .DWIDTH(symb_width),
-//        .DFRAC(symb_frac),
-//        .PIPELEN(3),
-//        .fixed_gain(3)
-//    ) UUT2C (
-//        .clk(clk),
-//        .rst(rst),
-//        .in_sample(sym_gen_out),
-//        .out_sample(ps_out)
-//    );
+    wire [11:0] signal;
     
-//    wire signed [symb_width-1:0] I, Q;
+    channel #(.DELAY(180)) wireless_channel (
+        .clk(clk),
+        .dac_data(dac_out),
+        .impaired_signal(signal)
+    );
     
-//    IQGenerator #(
-//        .SYMBOL_WIDTH(symb_width),
-//        .SYMBOL_FRAC(symb_frac),
-//        .SAMPLE_RATE(spl_rate),
-//        .FREQUENCY(carrier_frq),
-//        .RES(8)
-//    ) carrier (
-//        .clk(clk),
-//        .rst(rst),
-//        .en(en),
-//        .new_sample(new_sample),
-//        .offset(0),
-//        .I(I),
-//        .Q(Q)
-//    );
+    wire signed [symb_width-1:0] adc_in = {signal - 12'hA00, {(symb_width-12){1'b0}}};
     
-//    localparam symb_whole       = symb_width - symb_frac;
-//    //  Two's complement symbols parameterized to given bitwidths
-//    localparam symb_zero        = {symb_width{1'b0}};
-//    localparam symb_one         = {{symb_whole-1{1'b0}}, 1'b1, {symb_frac{1'b0}}};
-//    localparam symb_neg_one     = {{symb_whole{1'b1}}, {symb_frac{1'b0}}};
-//    localparam symb_half        = symb_one / 2;
-//    localparam symb_quart       = symb_one / 4;
-//    localparam symb_eigth       = symb_one / 8;
+    wire signed [symb_width-1:0] I_rx, Q_rx;
     
-//    wire signed [(2*symb_width)-1:0] modulation_product;
-//    PipeMult #(
-//        .WIDTH_A(symb_width),
-//        .WIDTH_B(symb_width),
-//        .PIPELEN(3)
-//    ) modulation_mult_pipeline (
-//        .clk(clk),
-//        .en(en),
-//        .rst(rst),
-//        .a(I),
-//        .b(ps_out),
-//        .r(modulation_product)
-//    );
-    
-    
-//    wire signed [symb_width-1:0] mod_out = modulation_product >>> symb_frac;
-//    wire [symb_width-1:0] offset = {~mod_out[symb_width-1], mod_out[symb_width-2:0]};
-//    wire [7:0] dac_out = offset[symb_width-1:symb_width-8];
-    
-//    localparam adc_bitdepth = 12;
-    
-//    wire [adc_bitdepth-1:0] signal;
-    
-//    channel #(.DELAY(180)) wireless_channel (
-//        .clk(clk),
-//        .dac_data(dac_out),
-//        .impaired_signal(signal)
-//    );
-    
+    CORDIC_DEMOD #(
+        .DWIDTH(symb_width),
+        .DFRAC(symb_frac),
+        .SAMPLE_RATE(spl_rate),
+        .CARRIER_FRQ(carrier_frq)
+    ) cordic_demodulator (
+        .clk(clk), .en(en), .rst(rst),
+        .new_sample(new_sample),
+        .passband(adc_in),
+        .I(I_rx), .Q(Q_rx)
+    );
     
 //    parameter adc_spl_rate = 3_000_000;
       
