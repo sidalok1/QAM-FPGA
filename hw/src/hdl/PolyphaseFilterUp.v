@@ -6,10 +6,10 @@ than SPAN + PIPELEN clock cycles in between each output sample
 
 module PolyphaseFilterUp #(
     parameter DWIDTH = 10,
+    parameter DFRAC = 8,
     parameter ORDER = 1001,
     parameter COEFILE = "rrc.mem",
-    parameter SPS = 100,
-    parameter GAIN = 32 // powers of two only
+    parameter SPS = 100
 ) (
     input clk, en, rst,
     input new_sample,
@@ -28,6 +28,7 @@ module PolyphaseFilterUp #(
     reg signed [DWIDTH-1:0] mult_in_a = 0, mult_in_b = 0;
     wire signed [(DWIDTH*2)-1:0] mult_out;
     reg signed  [(DWIDTH*2)-1:0] sum = 0;
+    wire signed [(DWIDTH*2)-1:0] res = sum >>> DFRAC;
 
     reg pipe_in = 0;
     reg reset_pipe = 0;
@@ -93,7 +94,7 @@ module PolyphaseFilterUp #(
                 jdx <= 0;
                 pipe_in <= 0;
                 reset_pipe <= 1;
-                out_sample <= sum >>> (DWIDTH - $clog2(GAIN));
+                out_sample <= res[DWIDTH-1:0] * (SPAN-1);
                 sum <= 0;
                 if ( idx == SPS - 1 ) begin
                     idx <= 0;

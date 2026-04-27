@@ -11,15 +11,15 @@
       </db_ref>
    </db_ref_list>
    <zoom_setting>
-      <ZoomStartTime time="12.360000 us"></ZoomStartTime>
-      <ZoomEndTime time="39.180001 us"></ZoomEndTime>
-      <Cursor1Time time="20.600000 us"></Cursor1Time>
+      <ZoomStartTime time="0.000000 us"></ZoomStartTime>
+      <ZoomEndTime time="6,655.000001 us"></ZoomEndTime>
+      <Cursor1Time time="3,001.000000 us"></Cursor1Time>
    </zoom_setting>
    <column_width_setting>
-      <NameColumnWidth column_width="261"></NameColumnWidth>
-      <ValueColumnWidth column_width="69"></ValueColumnWidth>
+      <NameColumnWidth column_width="202"></NameColumnWidth>
+      <ValueColumnWidth column_width="138"></ValueColumnWidth>
    </column_width_setting>
-   <WVObjectSize size="29" />
+   <WVObjectSize size="41" />
    <wvobject fp_name="/tb/clk" type="logic">
       <obj_property name="ElementShortName">clk</obj_property>
       <obj_property name="ObjectShortName">clk</obj_property>
@@ -96,11 +96,11 @@
       <obj_property name="Radix">UNSIGNEDDECRADIX</obj_property>
    </wvobject>
    <wvobject fp_name="/tb/UUT1/I" type="array">
-      <obj_property name="ElementShortName">I[13:0]</obj_property>
-      <obj_property name="ObjectShortName">I[13:0]</obj_property>
+      <obj_property name="ElementShortName">I[17:0]</obj_property>
+      <obj_property name="ObjectShortName">I[17:0]</obj_property>
       <obj_property name="Radix">REALRADIX</obj_property>
       <obj_property name="radix_realType">SIGNEDFIXEDPOINTRADIX</obj_property>
-      <obj_property name="radix_fractionWidth">12</obj_property>
+      <obj_property name="radix_fractionWidth">16</obj_property>
       <obj_property name="radix_otherWidth">0</obj_property>
       <obj_property name="WaveformStyle">STYLE_ANALOG</obj_property>
       <obj_property name="CellHeight">100</obj_property>
@@ -112,11 +112,11 @@
       <obj_property name="AnalogHorizLine">0.000000</obj_property>
    </wvobject>
    <wvobject fp_name="/tb/UUT1/Q" type="array">
-      <obj_property name="ElementShortName">Q[13:0]</obj_property>
-      <obj_property name="ObjectShortName">Q[13:0]</obj_property>
+      <obj_property name="ElementShortName">Q[17:0]</obj_property>
+      <obj_property name="ObjectShortName">Q[17:0]</obj_property>
       <obj_property name="Radix">REALRADIX</obj_property>
       <obj_property name="radix_realType">SIGNEDFIXEDPOINTRADIX</obj_property>
-      <obj_property name="radix_fractionWidth">12</obj_property>
+      <obj_property name="radix_fractionWidth">16</obj_property>
       <obj_property name="radix_otherWidth">0</obj_property>
       <obj_property name="WaveformStyle">STYLE_ANALOG</obj_property>
       <obj_property name="CellHeight">100</obj_property>
@@ -132,11 +132,11 @@
       <obj_property name="DisplayName">label</obj_property>
    </wvobject>
    <wvobject fp_name="/tb/I_ps" type="array">
-      <obj_property name="ElementShortName">I_ps[13:0]</obj_property>
-      <obj_property name="ObjectShortName">I_ps[13:0]</obj_property>
+      <obj_property name="ElementShortName">I_ps[17:0]</obj_property>
+      <obj_property name="ObjectShortName">I_ps[17:0]</obj_property>
       <obj_property name="Radix">REALRADIX</obj_property>
       <obj_property name="radix_realType">SIGNEDFIXEDPOINTRADIX</obj_property>
-      <obj_property name="radix_fractionWidth">12</obj_property>
+      <obj_property name="radix_fractionWidth">16</obj_property>
       <obj_property name="radix_otherWidth">0</obj_property>
       <obj_property name="WaveformStyle">STYLE_ANALOG</obj_property>
       <obj_property name="CellHeight">100</obj_property>
@@ -148,11 +148,11 @@
       <obj_property name="AnalogHorizLine">0.000000</obj_property>
    </wvobject>
    <wvobject fp_name="/tb/Q_ps" type="array">
-      <obj_property name="ElementShortName">Q_ps[13:0]</obj_property>
-      <obj_property name="ObjectShortName">Q_ps[13:0]</obj_property>
+      <obj_property name="ElementShortName">Q_ps[17:0]</obj_property>
+      <obj_property name="ObjectShortName">Q_ps[17:0]</obj_property>
       <obj_property name="Radix">REALRADIX</obj_property>
       <obj_property name="radix_realType">SIGNEDFIXEDPOINTRADIX</obj_property>
-      <obj_property name="radix_fractionWidth">12</obj_property>
+      <obj_property name="radix_fractionWidth">16</obj_property>
       <obj_property name="radix_otherWidth">0</obj_property>
       <obj_property name="WaveformStyle">STYLE_ANALOG</obj_property>
       <obj_property name="CellHeight">100</obj_property>
@@ -164,20 +164,28 @@
       <obj_property name="AnalogHorizLine">0.000000</obj_property>
    </wvobject>
    <wvobject fp_name="/tb/I_ps_filt_tx/mult_in_a" type="array">
-      <obj_property name="ElementShortName">mult_in_a[13:0]</obj_property>
-      <obj_property name="ObjectShortName">mult_in_a[13:0]</obj_property>
+      <obj_property name="ElementShortName">mult_in_a[17:0]</obj_property>
+      <obj_property name="ObjectShortName">mult_in_a[17:0]</obj_property>
+      <obj_property name="Radix">REALRADIX</obj_property>
+      <obj_property name="radix_realType">SIGNEDFIXEDPOINTRADIX</obj_property>
+      <obj_property name="radix_fractionWidth">16</obj_property>
+      <obj_property name="radix_otherWidth">0</obj_property>
    </wvobject>
    <wvobject fp_name="/tb/I_ps_filt_tx/mult_in_b" type="array">
-      <obj_property name="ElementShortName">mult_in_b[13:0]</obj_property>
-      <obj_property name="ObjectShortName">mult_in_b[13:0]</obj_property>
+      <obj_property name="ElementShortName">mult_in_b[17:0]</obj_property>
+      <obj_property name="ObjectShortName">mult_in_b[17:0]</obj_property>
+      <obj_property name="Radix">REALRADIX</obj_property>
+      <obj_property name="radix_realType">SIGNEDFIXEDPOINTRADIX</obj_property>
+      <obj_property name="radix_fractionWidth">16</obj_property>
+      <obj_property name="radix_otherWidth">0</obj_property>
    </wvobject>
    <wvobject fp_name="/tb/I_ps_filt_tx/mult_out" type="array">
-      <obj_property name="ElementShortName">mult_out[27:0]</obj_property>
-      <obj_property name="ObjectShortName">mult_out[27:0]</obj_property>
+      <obj_property name="ElementShortName">mult_out[35:0]</obj_property>
+      <obj_property name="ObjectShortName">mult_out[35:0]</obj_property>
    </wvobject>
    <wvobject fp_name="/tb/I_ps_filt_tx/sum" type="array">
-      <obj_property name="ElementShortName">sum[27:0]</obj_property>
-      <obj_property name="ObjectShortName">sum[27:0]</obj_property>
+      <obj_property name="ElementShortName">sum[35:0]</obj_property>
+      <obj_property name="ObjectShortName">sum[35:0]</obj_property>
    </wvobject>
    <wvobject fp_name="/tb/I_ps_filt_tx/pipe_out" type="logic">
       <obj_property name="ElementShortName">pipe_out</obj_property>
@@ -192,5 +200,117 @@
       <obj_property name="ElementShortName">jdx[3:0]</obj_property>
       <obj_property name="ObjectShortName">jdx[3:0]</obj_property>
       <obj_property name="Radix">UNSIGNEDDECRADIX</obj_property>
+   </wvobject>
+   <wvobject type="divider" fp_name="divider30">
+      <obj_property name="label">Modulation</obj_property>
+      <obj_property name="DisplayName">label</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb/mod_out" type="array">
+      <obj_property name="ElementShortName">mod_out[18:0]</obj_property>
+      <obj_property name="ObjectShortName">mod_out[18:0]</obj_property>
+      <obj_property name="Radix">REALRADIX</obj_property>
+      <obj_property name="radix_realType">SIGNEDFIXEDPOINTRADIX</obj_property>
+      <obj_property name="radix_fractionWidth">16</obj_property>
+      <obj_property name="radix_otherWidth">0</obj_property>
+      <obj_property name="CellHeight">100</obj_property>
+      <obj_property name="AnalogYRangeType">ANALOG_YRANGETYPE_AUTO</obj_property>
+      <obj_property name="AnalogYRangeMin">-2.000000</obj_property>
+      <obj_property name="AnalogYRRangeMax">2.000000</obj_property>
+      <obj_property name="AnalogInterpolation">ANALOG_INTERPOLATION_HOLD</obj_property>
+      <obj_property name="AnalogOffscale">ANALOG_OFFSCALE_HIDE</obj_property>
+      <obj_property name="AnalogHorizLine">0.000000</obj_property>
+      <obj_property name="WaveformStyle">STYLE_ANALOG</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb/cordic_modulator/cos_out" type="array">
+      <obj_property name="ElementShortName">cos_out[17:0]</obj_property>
+      <obj_property name="ObjectShortName">cos_out[17:0]</obj_property>
+      <obj_property name="Radix">REALRADIX</obj_property>
+      <obj_property name="radix_realType">SIGNEDFIXEDPOINTRADIX</obj_property>
+      <obj_property name="radix_fractionWidth">16</obj_property>
+      <obj_property name="radix_otherWidth">0</obj_property>
+      <obj_property name="CellHeight">100</obj_property>
+      <obj_property name="AnalogYRangeType">ANALOG_YRANGETYPE_FIXED</obj_property>
+      <obj_property name="AnalogYRangeMin">-2.000000</obj_property>
+      <obj_property name="AnalogYRRangeMax">2.000000</obj_property>
+      <obj_property name="AnalogInterpolation">ANALOG_INTERPOLATION_HOLD</obj_property>
+      <obj_property name="AnalogOffscale">ANALOG_OFFSCALE_HIDE</obj_property>
+      <obj_property name="AnalogHorizLine">0.000000</obj_property>
+      <obj_property name="WaveformStyle">STYLE_ANALOG</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb/cordic_modulator/sin_out" type="array">
+      <obj_property name="ElementShortName">sin_out[17:0]</obj_property>
+      <obj_property name="ObjectShortName">sin_out[17:0]</obj_property>
+      <obj_property name="Radix">REALRADIX</obj_property>
+      <obj_property name="radix_realType">SIGNEDFIXEDPOINTRADIX</obj_property>
+      <obj_property name="radix_fractionWidth">16</obj_property>
+      <obj_property name="radix_otherWidth">0</obj_property>
+      <obj_property name="CellHeight">100</obj_property>
+      <obj_property name="AnalogYRangeType">ANALOG_YRANGETYPE_FIXED</obj_property>
+      <obj_property name="AnalogYRangeMin">-2.000000</obj_property>
+      <obj_property name="AnalogYRRangeMax">2.000000</obj_property>
+      <obj_property name="AnalogInterpolation">ANALOG_INTERPOLATION_HOLD</obj_property>
+      <obj_property name="AnalogOffscale">ANALOG_OFFSCALE_HIDE</obj_property>
+      <obj_property name="AnalogHorizLine">0.000000</obj_property>
+      <obj_property name="WaveformStyle">STYLE_ANALOG</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb/cordic_modulator/cordic_modulator/x_in" type="array">
+      <obj_property name="ElementShortName">x_in[17:0]</obj_property>
+      <obj_property name="ObjectShortName">x_in[17:0]</obj_property>
+      <obj_property name="Radix">REALRADIX</obj_property>
+      <obj_property name="radix_realType">SIGNEDFIXEDPOINTRADIX</obj_property>
+      <obj_property name="radix_fractionWidth">16</obj_property>
+      <obj_property name="radix_otherWidth">0</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb/cordic_modulator/cordic_modulator/y_in" type="array">
+      <obj_property name="ElementShortName">y_in[17:0]</obj_property>
+      <obj_property name="ObjectShortName">y_in[17:0]</obj_property>
+      <obj_property name="Radix">REALRADIX</obj_property>
+      <obj_property name="radix_realType">SIGNEDFIXEDPOINTRADIX</obj_property>
+      <obj_property name="radix_fractionWidth">16</obj_property>
+      <obj_property name="radix_otherWidth">0</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb/cordic_modulator/cordic_modulator/start" type="logic">
+      <obj_property name="ElementShortName">start</obj_property>
+      <obj_property name="ObjectShortName">start</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb/cordic_modulator/cordic_modulator/phase" type="array">
+      <obj_property name="ElementShortName">phase[23:0]</obj_property>
+      <obj_property name="ObjectShortName">phase[23:0]</obj_property>
+      <obj_property name="Radix">REALRADIX</obj_property>
+      <obj_property name="radix_realType">SIGNEDFIXEDPOINTRADIX</obj_property>
+      <obj_property name="radix_fractionWidth">20</obj_property>
+      <obj_property name="radix_otherWidth">0</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb/cordic_modulator/cordic_modulator/requested_phase" type="array">
+      <obj_property name="ElementShortName">requested_phase[23:0]</obj_property>
+      <obj_property name="ObjectShortName">requested_phase[23:0]</obj_property>
+      <obj_property name="Radix">REALRADIX</obj_property>
+      <obj_property name="radix_realType">SIGNEDFIXEDPOINTRADIX</obj_property>
+      <obj_property name="radix_fractionWidth">20</obj_property>
+      <obj_property name="radix_otherWidth">0</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb/cordic_modulator/cordic_modulator/x" type="array">
+      <obj_property name="ElementShortName">x[18:0]</obj_property>
+      <obj_property name="ObjectShortName">x[18:0]</obj_property>
+      <obj_property name="Radix">REALRADIX</obj_property>
+      <obj_property name="radix_realType">SIGNEDFIXEDPOINTRADIX</obj_property>
+      <obj_property name="radix_fractionWidth">16</obj_property>
+      <obj_property name="radix_otherWidth">0</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb/cordic_modulator/cordic_modulator/y" type="array">
+      <obj_property name="ElementShortName">y[18:0]</obj_property>
+      <obj_property name="ObjectShortName">y[18:0]</obj_property>
+      <obj_property name="Radix">REALRADIX</obj_property>
+      <obj_property name="radix_realType">SIGNEDFIXEDPOINTRADIX</obj_property>
+      <obj_property name="radix_fractionWidth">16</obj_property>
+      <obj_property name="radix_otherWidth">0</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb/cordic_modulator/cordic_modulator/current_phase" type="array">
+      <obj_property name="ElementShortName">current_phase[23:0]</obj_property>
+      <obj_property name="ObjectShortName">current_phase[23:0]</obj_property>
+      <obj_property name="Radix">REALRADIX</obj_property>
+      <obj_property name="radix_realType">SIGNEDFIXEDPOINTRADIX</obj_property>
+      <obj_property name="radix_fractionWidth">20</obj_property>
+      <obj_property name="radix_otherWidth">0</obj_property>
    </wvobject>
 </wave_config>

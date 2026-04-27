@@ -2,8 +2,8 @@
 `define HALF_PERIOD 5
 module tb();
 
-    parameter symb_width = 14;
-    parameter symb_frac = 12;
+    parameter symb_width = 18;
+    parameter symb_frac = 16;
     parameter clk_freq = 100_000_000;
     parameter spl_rate = 5_000_000;
     parameter carrier_frq = 1_000_000;
@@ -38,6 +38,7 @@ module tb();
         end
     
     wire signed [symb_width-1:0] sym_gen_I, sym_gen_Q;
+    wire signed [symb_width:0] mod_out;
 //    wire sym_gen_ready;
     
     wire new_sample;
@@ -123,7 +124,8 @@ module tb();
     wire signed [symb_width-1:0] I_ps, Q_ps;
     
     PolyphaseFilterUp #(
-        .DWIDTH(symb_width)
+        .DWIDTH(symb_width),
+        .DFRAC(symb_frac)
     ) I_ps_filt_tx (
         .clk(clk),
         .rst(rst),
@@ -134,7 +136,8 @@ module tb();
     );
     
     PolyphaseFilterUp #(
-        .DWIDTH(symb_width)
+        .DWIDTH(symb_width),
+        .DFRAC(symb_frac)
     ) Q_ps_filt_tx (
         .clk(clk),
         .rst(rst),
@@ -143,6 +146,37 @@ module tb();
         .in_sample(sym_gen_Q),
         .out_sample(Q_ps)
     );
+    
+    CORDIC_MOD #(
+        .DWIDTH(symb_width),
+        .DFRAC(symb_frac),
+        .SAMPLE_RATE(spl_rate),
+        .CARRIER_FRQ(carrier_frq)
+    ) cordic_modulator (
+        .clk(clk),
+        .rst(rst),
+        .en(en),
+        .new_sample(new_sample),
+        .I(I_ps),
+        .Q(Q_ps),
+        .R(mod_out)
+    );
+    
+//    CORDIC_MOD #(
+//        .DWIDTH(symb_width),
+//        .DFRAC(symb_frac),
+//        .SAMPLE_RATE(spl_rate),
+//        .CARRIER_FRQ(carrier_frq/20)
+//    ) cordic_modulator (
+//        .clk(clk),
+//        .rst(rst),
+//        .en(en),
+//        .new_sample(new_sample),
+//        .I(2**symb_frac),
+//        .Q(0),
+//        .R(mod_out)
+//    );
+    
 //    wire signed [symb_width-1:0] ps_out;
 
 //    RRC_Filter #(
@@ -400,7 +434,7 @@ module tb();
     
     initial begin
         
-        write_m_axis("hello world!");
+        write_m_axis("A perfectly acceptable example of an extremely verbose message of large words and many characters!!!");
         
 //        #10 m_axis_tdata = "hell";
 //        m_axis_tvalid = 1;

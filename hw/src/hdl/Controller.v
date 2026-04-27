@@ -247,15 +247,16 @@ module Controller
         {I, Q}          = {ONE, ZERO};
         idx_max_val     = (SYNC_LEN/2) - 1;
         if ( s_axis_tvalid ) begin
-          tx_next     = AXI_RX;
+          tx_next       = AXI_RX;
         end else
         if ( start ) begin
-          tx_next     = STARTCODE;
+          tx_next       = STARTCODE;
         end else begin
-          tx_next         = IDLE;
+          tx_next       = IDLE;
         end
       end
       default: begin
+        {I, Q}          = 0;
         idx_max_val     = 0;
         tx_next         = IDLE;
       end
