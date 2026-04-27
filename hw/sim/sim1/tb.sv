@@ -188,6 +188,37 @@ module tb();
         .I(I_rx), .Q(Q_rx)
     );
     
+    wire signed [symb_width-1:0] I_ps_rx, Q_ps_rx;
+    
+    wire I_polyphase_ready, Q_polyphase_ready;
+    wire new_rx_sample = I_polyphase_ready | Q_polyphase_ready;
+    
+    PolyphaseFilterDown #(
+        .DWIDTH(symb_width),
+        .DFRAC(symb_frac)
+    ) I_ps_filt_rx (
+        .clk(clk),
+        .rst(rst),
+        .en(en),
+        .new_sample(new_sample),
+        .in_sample(I_rx),
+        .out_sample(I_ps_rx),
+        .new_rx_sample(I_polyphase_ready)
+    );
+    
+    PolyphaseFilterDown #(
+        .DWIDTH(symb_width),
+        .DFRAC(symb_frac)
+    ) Q_ps_filt_rx (
+        .clk(clk),
+        .rst(rst),
+        .en(en),
+        .new_sample(new_sample),
+        .in_sample(Q_rx),
+        .out_sample(Q_ps_rx),
+        .new_rx_sample(Q_polyphase_ready)
+    );
+    
 //    parameter adc_spl_rate = 3_000_000;
       
     

@@ -9,7 +9,7 @@ module PolyphaseFilterUp #(
     parameter DFRAC = 8,
     parameter ORDER = 1001,
     parameter COEFILE = "rrc.mem",
-    parameter SPS = 100
+    parameter UP = 100
 ) (
     input clk, en, rst,
     input new_sample,
@@ -17,9 +17,9 @@ module PolyphaseFilterUp #(
     output reg [DWIDTH-1:0] out_sample
 );
 
-    localparam SPAN = (ORDER/SPS) + 1;
+    localparam SPAN = (ORDER/UP) + 1;
     
-    reg [$clog2(SPS)-1:0] idx = 0;
+    reg [$clog2(UP)-1:0] idx = 0;
     reg [$clog2(SPAN)-1:0] jdx = 0;
 
 
@@ -28,7 +28,7 @@ module PolyphaseFilterUp #(
     reg signed [DWIDTH-1:0] mult_in_a = 0, mult_in_b = 0;
     wire signed [(DWIDTH*2)-1:0] mult_out;
     reg signed  [(DWIDTH*2)-1:0] sum = 0;
-    wire signed [(DWIDTH*2)-1:0] res = sum >>> DFRAC;
+    wire signed [(DWIDTH*2)-1:0] res = sum >>> (DFRAC - ($clog2(SPAN) - 1));
 
     reg pipe_in = 0;
     reg reset_pipe = 0;
@@ -61,12 +61,12 @@ module PolyphaseFilterUp #(
         .o(pipe_out)
     );
 
-    reg signed [DWIDTH-1:0] taps [0:SPAN-1][0:SPS-1];
+    reg signed [DWIDTH-1:0] taps [0:SPAN-1][0:UP-1];
     integer i, j;
     initial begin
         for ( i = 0; i < SPAN; i = i + 1 ) begin
             inputs[i] = 0;
-            for ( j = 0; j < SPS; j = j + 1 ) begin
+            for ( j = 0; j < UP; j = j + 1 ) begin
                 taps[i][j] = 0;
             end
         end
@@ -94,9 +94,9 @@ module PolyphaseFilterUp #(
                 jdx <= 0;
                 pipe_in <= 0;
                 reset_pipe <= 1;
-                out_sample <= res[DWIDTH-1:0] * (SPAN-1);
+                out_sample <= res[DWIDTH-1:0];
                 sum <= 0;
-                if ( idx == SPS - 1 ) begin
+                if ( idx == UP - 1 ) begin
                     idx <= 0;
                     inputs[0] <= in_sample;
                     for ( i = 1; i < SPAN; i = i + 1 ) begin
