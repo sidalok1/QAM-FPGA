@@ -121,15 +121,15 @@ module tb();
 //        .inv_msg_found(inv_msg_found)
     );
     
-    wire signed [symb_width+1:0] mag;
-    wire signed [19:0] phase;
+    wire signed [symb_width:0] mag;
+    wire signed [23:0] phase;
     wire vec_valid;
     
     CORDIC_VEC #(
         .DWIDTH(symb_width),
         .DFRAC(symb_frac),
-        .PWIDTH(20),
-        .DELAY(90)
+        .PWIDTH(24),
+        .DELAY(19)
     ) cordic_vectoring_mode (
         .clk(clk), .en(en), .rst(rst),
         .start(new_sample),

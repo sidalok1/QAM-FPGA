@@ -113,12 +113,10 @@ module CORDIC_ROT #(
                     y <= y + (x>>>idx);
                     current_phase <= current_phase + cordic_angles[idx];
                 end
-                else if ( current_phase > requested_phase ) begin
+                else begin
                     x <= x + (y>>>idx);
                     y <= y - (x>>>idx);
                     current_phase <= current_phase - cordic_angles[idx];
-                end else begin // current_phase == requested_phase
-                    idx <= DELAY - 1;
                 end
             end
             else if ( idx == DELAY - 1 ) begin
@@ -148,8 +146,8 @@ module CORDIC_VEC #(
 
     localparam ITERATIONS = DELAY-1;
 
-    wire signed [DWIDTH+1:0] e_x_in = {{2{x_in[DWIDTH-1]}}, x_in};
-    wire signed [DWIDTH+1:0] e_y_in = {{2{y_in[DWIDTH-1]}}, y_in};
+    wire signed [DWIDTH:0] e_x_in = {x_in[DWIDTH-1], x_in};
+    wire signed [DWIDTH:0] e_y_in = {y_in[DWIDTH-1], y_in};
 
     initial begin
         phase = 0;
@@ -187,10 +185,10 @@ module CORDIC_VEC #(
     reg signed [PWIDTH-1:0] current_phase = 0;
 
     // Precision is doubled to avoid truncation effects
-    reg signed [DWIDTH+1:0] x = 0, y = 0;
+    reg signed [DWIDTH:0] x = 0, y = 0;
 
-    wire signed [((DWIDTH+2)*2)-1:0] scale_mag;
-    assign scale_mag = (x * K) >>> DFRAC;
+    wire signed [((DWIDTH+1)*2)-1:0] scale_mag;
+    assign scale_mag = (x * K) >>> (DFRAC);
 
     always @( posedge clk ) begin
         if ( rst ) begin
@@ -225,18 +223,15 @@ module CORDIC_VEC #(
                     y <= y + (x>>>idx);
                     current_phase <= current_phase + cordic_angles[idx];
                 end
-                else if ( y > 0 ) begin
+                else begin
                     x <= x + (y>>>idx);
                     y <= y - (x>>>idx);
                     current_phase <= current_phase - cordic_angles[idx];
                 end
-                else begin // y == 0
-                    idx <= DELAY - 1;
-                end
             end
             else if ( idx == DELAY - 1 ) begin
                 phase <= current_phase;
-                magnitude <= scale_mag[DWIDTH+1:0];
+                magnitude <= scale_mag[DWIDTH:0];
                 valid <= 1;
             end
         end
