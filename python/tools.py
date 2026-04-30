@@ -374,12 +374,12 @@ def words2str(w: np.ndarray, M: int):
   char_bytes = np.packbits(np.reshape(word_binary, (-1, 8)))
   return "".join(chr(byte) for byte in char_bytes)
 
-def write_mem_file(arr: np.ndarray, word_len: int, frac_len: int, outfile: str, complex: bool = False):
+def write_mem_file(arr: np.ndarray, word_len: int, frac_len: int, outfile: str, complex: bool = False, sep: str = ""):
   lines = None
   if complex:
     r = arr_to_bin(arr.real, word_len, frac_len)
     i = arr_to_bin(arr.imag, word_len, frac_len)
-    lines = [r[n] + i[n] + '\n' for n in range(len(r))]
+    lines = [r[n] + sep + i[n] + '\n' for n in range(len(r))]
   else:
     lines = arr_to_bin(arr, word_len, frac_len)
     for i in range(len(lines)):
@@ -390,6 +390,7 @@ def write_mem_file(arr: np.ndarray, word_len: int, frac_len: int, outfile: str, 
 def arr_to_bin(arr, word_len, frac_len):
   arr = np.copy(arr)
   arr *= (2**frac_len) # normalize
+  arr = np.trunc(arr)
   arr = np.clip(arr, -1 * 2**(word_len-1), 2**(word_len-1) - 1)
   arr[arr < 0] = arr[arr < 0] + 2**(word_len)
   lines = ['{0:0{width}b}'.format(int(x), width=word_len) for x in arr]

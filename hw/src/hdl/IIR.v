@@ -1,119 +1,158 @@
+// Coefficients must be specified as second order sections
+
 module IIR #(
-    parameter DWIDTH = 18,
+    parameter DWIDTH = 20,
     parameter DFRAC = 16,
-    parameter ORDER = 2,
-    parameter NUM_COE = "iir_num.mem",
-    parameter DEN_COE = "iir_den.mem",
-    parameter PIPELEN = 7
-)
-(
+    parameter SOS = 1,
+    parameter COEFFICIENTS = "rx_iir.mem"
+)(
     input wire clk, en, rst,
     input wire new_sample,
-    input wire [DWIDTH-1:0] filt_in,
-    output wire [DWIDTH-1:0] filt_out
+    input wire signed [DWIDTH-1:0] filt_in,
+    output wire signed [DWIDTH-1:0] filt_out
 );
 
 
-    reg signed [DWIDTH-1:0] num [0:ORDER];
-    reg signed [DWIDTH-1:0] den [0:ORDER];
+    reg signed [DWIDTH-1:0] coefficients [0:SOS-1][0:5];
 
-    reg signed [DWIDTH-1:0] x [0:ORDER];
-    reg signed [DWIDTH-1:0] y [0:ORDER];
-    reg signed [(2*DWIDTH)-1:0] y0 = 0;
+    reg signed [DWIDTH-1:0] b [0:SOS-1][0:2], a [0:SOS-1][0:2], x [0:SOS-1][0:2], y [0:SOS-1][0:2];
 
-    assign filt_out = y[1];
+    reg signed [DWIDTH-1:0] mul_a [0:SOS-1], mul_b [0:SOS-1];
+    wire signed [(DWIDTH*2)-1:0] mul_o [0:SOS-1];
 
-    reg [$clog2(ORDER):0] idx = 0;
-    reg [$clog2(ORDER):0] jdx = 1;
+    wire signed [DWIDTH-1:0] stage_in [0:SOS-1];
+    
+    localparam PIPELEN = 7;
+    genvar g, h;
 
-    integer i, j;
+    generate
+        assign stage_in[0] = filt_in;
+        for ( g = 0; g < SOS; g = g + 1 ) begin
+            PipeMult #(
+                .WIDTH_A(DWIDTH),
+                .WIDTH_B(DWIDTH),
+                .PIPELEN(PIPELEN)
+            ) multiplier (
+                .clk(clk), .en(en), .rst(rst),
+                .a(mul_a[g]), .b(mul_b[g]),
+                .r(mul_o[g])
+            );
+            if ( g != 0 )
+                assign stage_in[g] = y[g-1][1];
+        end
+        assign filt_out = y[SOS-1][1];
+    endgenerate
 
-    reg signed [DWIDTH-1:0] mult_in_a = 0, mult_in_b = 0;
-    wire signed [(2*DWIDTH)-1:0] mult_out;
-    wire signed [(2*DWIDTH)-1:0] mult_res = y0 >>> DFRAC;
+    reg [2:0] idx = 0;
+    reg valid_i = 0;
+    wire valid_o;
 
-    reg mult_valid_i = 0;
-    wire mult_valid_o;
 
-    PipeMult #(
-        .WIDTH_A(DWIDTH),
-        .WIDTH_B(DWIDTH),
-        .PIPELEN(PIPELEN)
-    ) multiplier (
-        .clk(clk), .en(en), .rst(rst),
-        .a(mult_in_a),
-        .b(mult_in_b),
-        .r(mult_out)
-    );
+    
 
     PipeSignal #(
         .DWIDTH(1),
         .PIPELEN(PIPELEN)
-    ) signal_pipe (
-        .clk(clk), .en(en), .rst(rst | new_sample),
-        .i(mult_valid_i),
-        .o(mult_valid_o)
+    ) valid_signal_pipe (
+        .clk(clk), .en(en), .rst(rst),
+        .i(valid_i),
+        .o(valid_o)
     );
 
+    integer i;
+
     initial begin
-        $readmemb(NUM_COE, num);
-        $readmemb(DEN_COE, den);
-        // it is (for now) assumed, but not checked, that den[0] = 1
-        for ( i = 0; i <= ORDER; i = i + 1 ) begin
-            x[i] = 0;
-        end
-        for ( j = 0; j <= ORDER; j = j + 1 ) begin
-            y[j] = 0;
+        $readmemb(COEFFICIENTS, coefficients);
+        for ( i = 0; i < SOS; i = i + 1 ) begin
+            if ( coefficients[i][3] != 2**DFRAC ) begin
+                $error("Highest order denominator coefficient of stage %d is %f, not 1", 
+                    i,
+                    $itor(coefficients[i][3])/$itor(2**DFRAC));
+            end
+            b[i][0] = coefficients[i][0];
+            b[i][1] = coefficients[i][1];
+            b[i][2] = coefficients[i][2];
+
+            a[i][0] = 0; // unused
+            a[i][1] = coefficients[i][4];
+            a[i][2] = coefficients[i][5];
+
+            x[i][0] = 0;
+            x[i][1] = 0;
+            x[i][2] = 0;
+
+            y[i][0] = 0;
+            y[i][1] = 0;
+            y[i][2] = 0;
+
+            mul_a[i] = 0;
+            mul_b[i] = 0;
         end
     end
 
     always @ ( posedge clk ) begin
         if ( rst ) begin
-            for ( i = 0; i <= ORDER; i = i + 1 ) begin
-                x[i] <= 0;
+            for ( i = 0; i < SOS; i = i + 1 ) begin
+                x[i][0] <= 0;
+                x[i][1] <= 0;
+                x[i][2] <= 0;
+
+                y[i][0] <= 0;
+                y[i][1] <= 0;
+                y[i][2] <= 0;
+
+                mul_a[i] <= 0;
+                mul_b[i] <= 0;
             end
-            for ( j = 0; j <= ORDER; j = j + 1 ) begin
-                y[j] <= 0;
-            end
+            valid_i <= 0;
             idx <= 0;
-            jdx <= 1;
-            mult_in_a <= 0;
-            mult_in_b <= 0;
-            mult_valid_i <= 0;
-            y0 <= 0;
         end
         else if ( en ) begin
-            mult_valid_i <= 0;
             if ( new_sample ) begin
-                mult_in_a <= 0;
-                mult_in_b <= 0;
                 idx <= 0;
-                jdx <= 1;
-                x[0] <= filt_in;
-                y0 <= 0;
-                for ( i = 1; i <= ORDER; i = i + 1 ) begin
-                    x[i] <= x[i-1];
-                end
-                y[1] <= y0[DWIDTH-1:0];
-                for ( j = 2; j <= ORDER; j = j + 1 ) begin
-                    y[j] <= y[j-1];
-                end
-            end
-            else if ( idx <= ORDER ) begin
-                idx <= idx + 1;
-                mult_valid_i <= 1;
-                mult_in_a <= x[idx];
-                mult_in_b <= num[idx];
-            end
-            else if ( idx > ORDER && jdx <= ORDER ) begin
-                jdx <= jdx + 1;
-                mult_valid_i <= 1;
-                mult_in_a <= y[jdx];
-                mult_in_b <= den[jdx] * -1;
-            end
+                valid_i <= 0;
+                for ( i = 0; i < SOS; i = i + 1 ) begin
+                    x[i][2] <= x[i][1];
+                    x[i][1] <= x[i][0];
+                    x[i][0] <= stage_in[i];
 
-            if ( mult_valid_o ) begin
-                y0 <= y0 + (mult_out >>> DFRAC);
+                    y[i][2] <= y[i][1];
+                    y[i][1] <= y[i][0];
+                    y[i][0] <= 0;
+
+                    mul_a[i] <= 0;
+                    mul_b[i] <= 0;
+                end
+            end
+            else begin
+                case ( idx )
+                0, 1, 2: begin
+                    for ( i = 0; i < SOS; i = i + 1 ) begin
+                        mul_a[i] <= x[i][idx];
+                        mul_b[i] <= b[i][idx];
+                    end
+                    valid_i <= 1;
+                    idx <= idx + 1;
+                end
+                3, 4: begin
+                    for ( i = 0; i < SOS; i = i + 1 ) begin
+                        mul_a[i] <= y[i][idx-2];
+                        mul_b[i] <= a[i][idx-2] * -1;
+                    end
+                    valid_i <= 1;
+                    idx <= idx + 1;
+                end
+                default: begin
+                    valid_i <= 0;
+                    idx <= idx;
+                end
+                endcase
+
+                if ( valid_o ) begin
+                    for ( i = 0; i < SOS; i = i + 1 ) begin
+                        y[i][0] <= y[i][0] + (mul_o[i] >>> DFRAC);
+                    end
+                end
             end
         end
     end

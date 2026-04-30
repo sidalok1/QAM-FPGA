@@ -14,17 +14,17 @@ module PolyphaseFilterDown #(
 
     localparam SPAN = (ORDER/DN) + 1;
     
-    reg [$clog2(DN)-1:0] idx = 0;
-    reg [$clog2(SPAN)-1:0] jdx = 0;
+    integer idx = 0;
+    integer jdx = 0;
 
 
-    reg signed [DWIDTH-1:0] inputs [0:SPAN-1];
+    reg signed [DWIDTH-1:0] inputs [0:DN-1];
 
-    reg signed [DWIDTH-1:0] bank_inputs [0:SPAN-1];
+    reg signed [DWIDTH-1:0] bank_inputs [0:DN-1][0:SPAN-1];
 
     reg signed [DWIDTH-1:0] mult_in_a [0:DN-1], mult_in_b [0:DN-1];
     wire signed [(DWIDTH*2)-1:0] mult_out [0:DN-1];
-    reg signed  [(DWIDTH*2)-1:0] sum [0:DN-1];
+    reg signed  [(DWIDTH*2)-1:0] acc [0:DN-1];
 
     reg signed [(DWIDTH*2)-1:0] sum_in [0:DN-1];
     reg signed [(DWIDTH*2)-1:0] total = 0;
@@ -32,7 +32,6 @@ module PolyphaseFilterDown #(
     wire signed [(DWIDTH*2)-1:0] res = total >>> (DFRAC - ($clog2(SPAN)-1));
 
     reg pipe_in = 0;
-    reg reset_pipe = 0;
 
     localparam PIPELEN = 7;
 
@@ -61,7 +60,7 @@ module PolyphaseFilterDown #(
         .PIPELEN(PIPELEN)
     ) signal_pipe (
         .clk(clk),
-        .rst(rst | reset_pipe),
+        .rst(rst),
         .en(en),
         .i(pipe_in),
         .o(pipe_out)
@@ -73,14 +72,12 @@ module PolyphaseFilterDown #(
         for ( i = 0; i < DN; i = i + 1 ) begin
             mult_in_a[i] = 0;
             mult_in_b[i] = 0;
-            sum[i] = 0;
+            acc[i] = 0;
             sum_in[i] = 0;
-        end
-        for ( i = 0; i < SPAN; i = i + 1 ) begin
             inputs[i] = 0;
-            bank_inputs[i] = 0;
-            for ( j = 0; j < DN; j = j + 1 ) begin
-                taps[i][j] = 0;
+            for ( j = 0; j < SPAN; j = j + 1 ) begin
+                bank_inputs[i][j] = 0;
+                taps[j][i] = 0;
             end
         end
         $readmemb(COEFILE, taps);
@@ -95,79 +92,78 @@ module PolyphaseFilterDown #(
             for ( i = 0; i < DN; i = i + 1 ) begin
                 mult_in_a[i] = 0;
                 mult_in_b[i] = 0;
-                sum[i] = 0;
+                acc[i] = 0;
                 sum_in[i] = 0;
+                inputs[i] <= 0;
+                for ( j = 0; j < SPAN; j = j + 1 ) begin
+                    bank_inputs[i][j] = 0;
+                end
             end
             pipe_in <= 0;
-            reset_pipe <= 0;
             total <= 0;
-            for ( i = 0; i < SPAN; i = i + 1 ) begin
-                inputs[i] <= 0;
-                bank_inputs[i] <= 0;
-            end
             out_sample <= 0;
             new_rx_sample <= 0;
         end
         else if ( en ) begin
-            reset_pipe <= 0;
-            new_rx_sample <= 0;
+            // FAST DOMAIN
             if ( new_sample ) begin
                 inputs[0] <= in_sample;
-                for ( i = 1; i < SPAN; i = i + 1 ) begin
+                for ( i = 1; i < DN; i = i + 1 ) begin
                     inputs[i] <= inputs[i-1];
                 end
-                
+            end
+            
+            // SLOW DOMAIN
+            if ( new_sample ) begin
                 if ( idx == DN - 1 ) begin
                     idx <= 0;
-                    out_sample <= res[DWIDTH-1:0];
-                    new_rx_sample <= 1;
-                    total <= 0;
-                    for ( i = 0; i < DN; i = i + 1 ) begin
-                        bank_inputs[i] <= inputs[i];
-                        sum_in[i] <= sum[i];
-                        sum[i] <= 0;
-                    end
+                    // Samples in slow domain happen every DN samples of fast
+                    // domain.
                     jdx <= 0;
-                    pipe_in <= 0;
-                    reset_pipe <= 1;
+                    total <= 0;
+                    out_sample <= total;
+                    for ( i = 0; i < DN; i = i + 1 ) begin
+                        bank_inputs[i][0] <= inputs[i];
+                        for ( j = 1; j < SPAN; j = j + 1 ) begin
+                            bank_inputs[i][j] <= bank_inputs[i][j-1];
+                        end
+                        sum_in[i] <= acc[i];
+                        acc[i] <= 0;
+                    end
+                    new_rx_sample <= 1;
                 end
                 else begin
                     idx <= idx + 1;
                 end
-
-            end
+            end 
             else begin
-                for ( i = 0; i < DN; i = i + 1 ) begin
-                    mult_in_a[i] <= bank_inputs[jdx];
-                    mult_in_b[i] <= taps[jdx][i];
-                end
-                if ( jdx < SPAN ) begin
-                    pipe_in <= 1;
+                new_rx_sample <= 0;
+                if ( jdx < SPAN || jdx < DN ) begin
                     jdx <= jdx + 1;
                 end
+
+                if ( jdx < SPAN ) begin
+                    pipe_in <= 1;
+                    for ( i = 0; i < DN; i = i + 1 ) begin
+                        mult_in_a[i] <= bank_inputs[i][jdx];
+                        mult_in_b[i] <= taps[jdx][i];
+                    end
+                end 
                 else begin
                     pipe_in <= 0;
                 end
-                
                 if ( pipe_out ) begin
-                    // if multiplier output is valid, accumulate
                     for ( i = 0; i < DN; i = i + 1 ) begin
-                        sum[i] <= sum[i] + mult_out[i];
+                        acc[i] <= acc[i] + (mult_out[i] >>> DFRAC);
                     end
                 end
 
-                // Second additional stage for summing the intermediate sums
                 if ( jdx < DN ) begin
                     total <= total + sum_in[jdx];
-                    jdx <= jdx + 1;
                 end
-
-                // Due to nonblocking assignment, jdx is incremented if either 
-                // of the jdx conditions are met, which is the desired 
-                // behaviour. Importantly, the conditions are mainly there to 
-                // ensure that the multiplication and addition operations are
-                // only performed over a valid range
+                
             end
+
         end
     end
 

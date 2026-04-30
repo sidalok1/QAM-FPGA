@@ -62,10 +62,7 @@ module CORDIC_DEMOD #(
     parameter DWIDTH = 18,
     parameter DFRAC = 16,
     parameter SAMPLE_RATE = 5_000_000,
-    parameter CARRIER_FRQ = 1_000_000,
-    parameter ORDER = 2,
-    parameter NUM_COE = "demod_iir_num.mem",
-    parameter DEN_COE = "demod_iir_den.mem"
+    parameter CARRIER_FRQ = 1_000_000
 )
 (
     input wire clk, en, rst,
@@ -105,23 +102,25 @@ module CORDIC_DEMOD #(
     reg signed [DWIDTH-1:0] I_filt_in = 0, Q_filt_in = 0;
     wire signed [DWIDTH-1:0] I_filt_out, Q_filt_out;
 
-    IIR #(
-        .DWIDTH(DWIDTH),
-        .DFRAC(DFRAC),
-        .ORDER(ORDER),
-        .NUM_COE(NUM_COE),
-        .DEN_COE(DEN_COE)
-    ) I_channel_filt (
-        .clk(clk), .rst(rst), .en(en),
-        .new_sample(new_sample),
-        .filt_in(I_filt_in),
-        .filt_out(I_filt_out)
-    ),Q_channel_filt (
-        .clk(clk), .rst(rst), .en(en),
-        .new_sample(new_sample),
-        .filt_in(Q_filt_in),
-        .filt_out(Q_filt_out)
-    );
+    // FIR #(
+    //     .DWIDTH(DWIDTH),
+    //     .DFRAC(DFRAC),
+    //     .ORDER(11),
+    //     .TAPS_FILE("demod_fir.mem")
+    // ) I_channel_filt (
+    //     .clk(clk), .rst(rst), .en(en),
+    //     .new_sample(new_sample),
+    //     .filt_in(I_filt_in),
+    //     .filt_out(I_filt_out)
+    // ),Q_channel_filt (
+    //     .clk(clk), .rst(rst), .en(en),
+    //     .new_sample(new_sample),
+    //     .filt_in(Q_filt_in),
+    //     .filt_out(Q_filt_out)
+    // );
+    // It seems to be that the matched filter is good enough to function here
+    assign I_filt_out = I_filt_in;
+    assign Q_filt_out = Q_filt_in;
 
     always @ ( posedge clk ) begin
         if ( rst ) begin
@@ -134,7 +133,7 @@ module CORDIC_DEMOD #(
             if ( new_sample ) begin
                 cordic_in <= passband;
                 I_filt_in <= cos_out;
-                Q_filt_in <= sin_out * -1;
+                Q_filt_in <= sin_out;
                 I <= I_filt_out;
                 Q <= Q_filt_out;
                 phase <= (phase_next < (-1*PI)) ? phase_next + (2*PI) : phase_next;
