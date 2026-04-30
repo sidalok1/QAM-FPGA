@@ -1,51 +1,49 @@
 module Controller
 #(
   //  Total word length of the output symbols
-  parameter DWIDTH                      = 10,
-  parameter DFRAC                       = 8,
+  parameter DWIDTH                          = 10,
+  parameter DFRAC                           = 8,
   //  Number of symbols in constellation
-  parameter MODULATION_ORDER                  = 16,
+  parameter MODULATION_ORDER                = 4,
   //  File containing constellation symbols in order,
-  parameter CONSTELLATION                     = "const.mem", 
-  parameter ZADOFF_CHU_SEQ                    = "zadoff_chu.mem",
+  parameter CONSTELLATION                   = "const.mem", 
+  parameter FRAME_SEQ                       = "zadoff_chu.mem",
   //  Output sample rate in hertz
-  parameter SAMPLE_RATE                       = 5_000_000,
+  parameter SAMPLE_RATE                     = 5_000_000,
   //  Symbol rate in hertz, together with last value determin sps
-  parameter SYMBOL_RATE                       = 50_000,
-  parameter SYNC_LEN                          = 16,
-  parameter EQ_LEN                            = 32
+  parameter SYMBOL_RATE                     = 50_000,
+  parameter FRAME_LEN                       = 16,
+  parameter EQ_LEN                          = 32
 )
 (
   //  Input clock, should be at the frequency specified by parameter
-  input wire                              clk,
+  input wire                                clk,
   //  General clocked logic enable signal
-  input wire                              en,
+  input wire                                en,
   //  Synchronous reset
-  input wire                              rst,
+  input wire                                rst,
   //  Signal to begin a transmission
-  input wire                              start,
-  input wire                              new_sample,
+  input wire                                start,
+  input wire                                new_sample,
   //  Output symbols in two's complement form at the requested sample rate
-  output reg signed [DWIDTH-1:0]          I, Q,
+  output reg signed [DWIDTH-1:0]            I, Q,
   
   //  Axi stream ports
-  input wire [31:0]                       s_axis_tdata,
-//    input wire [3:0]                        s_axis_tkeep,
-  input wire                              s_axis_tlast,
-  input wire                              s_axis_tvalid,
-  output reg                              s_axis_tready,
+  input wire [31:0]                         s_axis_tdata,
+  input wire                                s_axis_tlast,
+  input wire                                s_axis_tvalid,
+  output reg                                s_axis_tready,
   
-  output reg [31:0]                       m_axis_tdata,
-//    output reg [3:0]                        m_axis_tkeep,
-  output reg                              m_axis_tlast,
-  output reg                              m_axis_tvalid,
-  input wire                              m_axis_tready,
+  output reg [31:0]                         m_axis_tdata,
+  output reg                                m_axis_tlast,
+  output reg                                m_axis_tvalid,
+  input wire                                m_axis_tready,
   
-  output reg                              interrupt,
+  output reg                                interrupt,
   
   //  Controller also receives information from receiver hardware
-  input wire                              new_symbol,
-  input wire                              rx_symbol
+  input wire [$clog2(MODULATION_ORDER)-1:0] rx_symbol,
+  input wire                                new_symbol
 );
   
   initial begin
@@ -53,7 +51,6 @@ module Controller
     Q               = 0;
     s_axis_tready   = 0;
     m_axis_tdata    = 0;
-  //        m_axis_tkeep = 0;
     m_axis_tlast    = 0;
     m_axis_tvalid   = 0;
     interrupt       = 0;
@@ -73,10 +70,10 @@ module Controller
   // Maximum value of idx before state should change
   integer idx_max_val;
   
-  reg [(DWIDTH*2)-1:0] constellation [0:MODULATION_ORDER-1];
+  reg [DWIDTH-1:0] constellation [0:MODULATION_ORDER-1][0:1];
   initial $readmemb(CONSTELLATION, constellation);
-  reg [(DWIDTH*2)-1:0] zadoff_chu_seq [0:SYNC_LEN-1];
-  initial $readmemb(ZADOFF_CHU_SEQ, zadoff_chu_seq);
+  reg [DWIDTH-1:0] frame_header_seq [0:FRAME_LEN-1][0:1];
+  initial $readmemb(FRAME_SEQ, frame_header_seq);
   
   //  Symbols per sample
   localparam integer SPS                  = SAMPLE_RATE / SYMBOL_RATE;
@@ -97,7 +94,7 @@ module Controller
   reg [tx_STATES-1:0] tx_state            = IDLE;
   
 
-  reg [tx_STATES-1:0] tx_next, axi_next = IDLE;
+  reg [tx_STATES-1:0] tx_next, axi_next   = IDLE;
   
   localparam rx_STATES                    = 3;
   localparam [rx_STATES-1:0] READLEN      = 3'b001;
@@ -224,28 +221,39 @@ module Controller
     // The synchronization is a stream of ones and zeros, which aid both the
     // costas loop and timing error detector.
       PRESYNC: begin 
-        {I, Q}          = {ONE, ZERO};
+        I               = ONE;
+        Q               = ZERO;
         idx_max_val     = EQ_LEN - 1;
         tx_next         = STARTCODE;
       end            
       STARTCODE: begin  
-        {I, Q}          = zadoff_chu_seq[idx];
-        idx_max_val     = SYNC_LEN - 1;
+        if ( idx < FRAME_LEN ) begin
+          I             = frame_header_seq[idx][0];
+          Q             = frame_header_seq[idx][1];
+        end
+        else begin
+          I             = ZERO;
+          Q             = ZERO;
+        end
+        idx_max_val     = FRAME_LEN;
         tx_next         = MSGLEN;
       end
       MSGLEN: begin
-        {I, Q}          = constellation[tx_len[(idx*BITS_PER_SYMBOL)+:BITS_PER_SYMBOL]];
+        I               = constellation[tx_len[(idx*BITS_PER_SYMBOL)+:BITS_PER_SYMBOL]][0];
+        Q               = constellation[tx_len[(idx*BITS_PER_SYMBOL)+:BITS_PER_SYMBOL]][1];
         idx_max_val     = 3;
         tx_next         = MSGBODY;
       end
       MSGBODY: begin
-        {I, Q}          = constellation[message_buffer[(idx*BITS_PER_SYMBOL)+:BITS_PER_SYMBOL]];
+        I               = constellation[message_buffer[(idx*BITS_PER_SYMBOL)+:BITS_PER_SYMBOL]][0];
+        Q               = constellation[message_buffer[(idx*BITS_PER_SYMBOL)+:BITS_PER_SYMBOL]][1];
         idx_max_val     = tx_len - 1;
         tx_next         = POSTSYNC;
       end
       POSTSYNC: begin
-        {I, Q}          = {ONE, ZERO};
-        idx_max_val     = (SYNC_LEN/2) - 1;
+        I               = ONE;
+        Q               = ZERO;
+        idx_max_val     = (EQ_LEN/2) - 1;
         if ( s_axis_tvalid ) begin
           tx_next       = AXI_RX;
         end else
@@ -256,8 +264,8 @@ module Controller
         end
       end
       default: begin
-        {I, Q}          = 0;
-        idx_max_val     = 0;
+        {I, Q}          = ZERO;
+        idx_max_val     = ZERO;
         tx_next         = IDLE;
       end
     endcase

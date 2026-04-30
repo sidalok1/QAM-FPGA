@@ -26,7 +26,7 @@ module CORDIC_ROT #(
 
     localparam PFRAC = PWIDTH - 4;
 
-    reg [$clog2(DELAY)-1:0] idx = 0;
+    reg [$clog2(DELAY):0] idx = 0;
 
     reg signed [PWIDTH-1:0] cordic_angles [0:ITERATIONS-1];
 
@@ -75,6 +75,7 @@ module CORDIC_ROT #(
             y <= 0;
         end
         else if ( en ) begin
+            valid <= 0;
             if ( start ) begin
                 idx <= 0;
                 current_phase <= 0;
@@ -123,6 +124,7 @@ module CORDIC_ROT #(
                 x_out <= scale_x[DWIDTH-1:0];
                 y_out <= scale_y[DWIDTH-1:0];
                 valid <= 1;
+                idx <= idx + 1; // ensures valid is high for at most one cycle
             end
         end
     end
@@ -157,7 +159,7 @@ module CORDIC_VEC #(
 
     localparam PFRAC = PWIDTH - 4;
 
-    reg [$clog2(DELAY)-1:0] idx = 0;
+    reg [$clog2(DELAY):0] idx = 0;
 
     reg signed [PWIDTH-1:0] cordic_angles [0:ITERATIONS-1];
 
@@ -201,11 +203,12 @@ module CORDIC_VEC #(
             y <= 0;
         end
         else if ( en ) begin
+            valid <= 0;
             if ( start ) begin
                 idx <= 0;
                 valid <= 0;
                 if ( x_in < 0 ) begin
-                    current_phase <= PI;
+                    current_phase <= (y_in > 0) ? -1*PI : PI;
                     x <= -1 * e_x_in;
                     y <= -1 * e_y_in;
                 end
@@ -233,9 +236,101 @@ module CORDIC_VEC #(
                 phase <= current_phase;
                 magnitude <= scale_mag[DWIDTH:0];
                 valid <= 1;
+                idx <= idx + 1;
             end
         end
     end
 
+
+endmodule
+
+module CORDIC_VEC_PIPE #(
+    parameter DWIDTH = 16,
+    parameter DFRAC = 12,
+    parameter PWIDTH = 16,
+    parameter DELAY = 16
+) (
+    input wire clk, en, rst,
+    input wire signed [DWIDTH-1:0] x_in, y_in,
+    output wire signed [PWIDTH-1:0] phase,
+    output wire signed [DWIDTH:0] magnitude
+);
+
+    localparam ITERATIONS = DELAY - 1;
+
+    wire signed [DWIDTH:0] e_x_in = {x_in[DWIDTH-1], x_in};
+    wire signed [DWIDTH:0] e_y_in = {y_in[DWIDTH-1], y_in};
+
+
+    localparam PFRAC = PWIDTH - 4;
+
+    reg signed [PWIDTH-1:0] cordic_angles [0:ITERATIONS-1];
+
+    localparam signed [PWIDTH-1:0] PI = $rtoi($atan2(0, -1) * 2**(PFRAC));
+
+    reg signed [DWIDTH-1:0] K;
+
+    reg signed [PWIDTH-1:0] z [0:ITERATIONS];
+
+    reg signed [DWIDTH:0] x [0:ITERATIONS], y [0:ITERATIONS];
+    
+    integer i;
+    real cos_scale;
+    real angle;
+    initial begin
+        cos_scale = 1.0;
+        for ( i = 0; i < ITERATIONS; i = i + 1 ) begin
+            angle = $atan($pow(2, -1*i));
+            cos_scale = cos_scale * $cos(angle);
+            cordic_angles[i] = $rtoi(angle * 2**(PFRAC));
+
+            z[i] = 0;
+            x[i] = 0;
+            y[i] = 0;
+        end
+        x[ITERATIONS] = 0;
+        z[ITERATIONS] = 0;
+        y[ITERATIONS] = 0; // unused
+        K = $rtoi(cos_scale * 2**(DFRAC));
+    end
+
+    wire signed [((DWIDTH+1)*2)-1:0] scale_mag;
+    assign scale_mag = (x[ITERATIONS] * K);
+    assign magnitude = scale_mag >>> DFRAC;
+    assign phase = z[ITERATIONS];
+
+    always @ ( posedge clk ) begin
+        if ( rst ) begin
+            for ( i = 0; i <= ITERATIONS; i = i + 1 ) begin
+                z[i] <= 0;
+                x[i] <= 0;
+                y[i] <= 0;
+            end
+        end
+        else if ( en ) begin
+            if ( x_in < 0 ) begin
+                z[0] <= (y_in > 0) ? -1*PI : PI;
+                x[0] <= -1 * e_x_in;
+                y[0] <= -1 * e_y_in;
+            end
+            else begin
+                z[0] <= 0;
+                x[0] <= e_x_in;
+                y[0] <= e_y_in;
+            end
+            for ( i = 1; i <= ITERATIONS; i = i + 1 ) begin
+                if ( y[i-1] < 0 ) begin
+                    x[i] <= x[i-1] - (y[i-1]>>>i);
+                    y[i] <= y[i-1] + (x[i-1]>>>i); // last iteration ignored
+                    z[i] <= z[i-1] + cordic_angles[i-1];
+                end
+                else begin
+                    x[i] <= x[i-1] + (y[i-1]>>>i);
+                    y[i] <= y[i-1] - (x[i-1]>>>i); // last iteration ignored
+                    z[i] <= z[i-1] - cordic_angles[i-1];
+                end
+            end
+        end
+    end
 
 endmodule
