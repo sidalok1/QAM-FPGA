@@ -9,7 +9,7 @@ The system (input) clock frequency is expected as the parameter I_CLK_FRQ
 
 module clockdiv #(
     parameter           I_CLK_FRQ = 100_000_000,
-    parameter           FREQUENCY = 1 // Output frq in hz
+    parameter           FREQUENCY = 5_000_000 // Output frq in hz
 ) (
     input wire          rst,
     input wire          i_clk,

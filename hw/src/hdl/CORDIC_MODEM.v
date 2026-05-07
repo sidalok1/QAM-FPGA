@@ -118,7 +118,6 @@ module CORDIC_DEMOD #(
     //     .filt_in(Q_filt_in),
     //     .filt_out(Q_filt_out)
     // );
-    // It seems to be that the matched filter is good enough to function here
     assign I_filt_out = I_filt_in;
     assign Q_filt_out = Q_filt_in;
 
@@ -128,6 +127,8 @@ module CORDIC_DEMOD #(
             phase <= 0;
             I <= 0;
             Q <= 0;
+            I_filt_in <= 0;
+            Q_filt_in <= 0;
         end
         else if ( en ) begin
             if ( new_sample ) begin

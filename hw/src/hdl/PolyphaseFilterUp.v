@@ -7,7 +7,7 @@ than SPAN + PIPELEN clock cycles in between each output sample
 module PolyphaseFilterUp #(
     parameter DWIDTH = 10,
     parameter DFRAC = 8,
-    parameter ORDER = 1001,
+    parameter ORDER = 1201,
     parameter COEFILE = "rrc.mem",
     parameter UP = 100
 ) (
@@ -28,12 +28,12 @@ module PolyphaseFilterUp #(
     reg signed [DWIDTH-1:0] mult_in_a = 0, mult_in_b = 0;
     wire signed [(DWIDTH*2)-1:0] mult_out;
     reg signed  [(DWIDTH*2)-1:0] sum = 0;
-    wire signed [(DWIDTH*2)-1:0] res = sum >>> (DFRAC - ($clog2(SPAN) - 1));
+    wire signed [(DWIDTH*2)-1:0] res = sum >>> (DFRAC - ($clog2(SPAN)));
 
     reg pipe_in = 0;
     reg reset_pipe = 0;
 
-    localparam PIPELEN = 7;
+    localparam PIPELEN = 2;
 
     PipeMult #(
         .WIDTH_A(DWIDTH),
@@ -61,15 +61,18 @@ module PolyphaseFilterUp #(
         .o(pipe_out)
     );
 
-    reg signed [DWIDTH-1:0] taps [0:SPAN-1][0:UP-1];
+    // reg signed [DWIDTH-1:0] taps [0:SPAN-1][0:UP-1];
+    reg signed [DWIDTH-1:0] taps [0:(SPAN*UP)-1];
     integer i, j;
     initial begin
         for ( i = 0; i < SPAN; i = i + 1 ) begin
             inputs[i] = 0;
             for ( j = 0; j < UP; j = j + 1 ) begin
-                taps[i][j] = 0;
+                taps[(i*UP)+j] = 0;
             end
+            // $readmemb(COEFILE, taps[i], (i*UP), (i*UP)+UP-1);
         end
+        
         $readmemb(COEFILE, taps);
         out_sample = 0;
     end
@@ -112,7 +115,7 @@ module PolyphaseFilterUp #(
                 pipe_in <= 0;
                 if ( jdx < SPAN ) begin
                     mult_in_a <= inputs[jdx];
-                    mult_in_b <= taps[jdx][idx];
+                    mult_in_b <= taps[(jdx*UP)+idx];
                     // signal to accumulator multiplier has valid output
                     pipe_in <= 1; 
                     jdx <= jdx + 1;

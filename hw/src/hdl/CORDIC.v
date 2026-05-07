@@ -12,7 +12,7 @@ module CORDIC_ROT #(
     output reg signed [DWIDTH-1:0] x_out, y_out,
     output reg valid
 );
-
+    
     wire signed [DWIDTH:0] e_x_in = {x_in[DWIDTH-1], x_in};
     wire signed [DWIDTH:0] e_y_in = {y_in[DWIDTH-1], y_in};
 
@@ -241,8 +241,8 @@ module CORDIC_VEC #(
         end
     end
 
-
 endmodule
+
 
 module CORDIC_VEC_PIPE #(
     parameter DWIDTH = 16,
@@ -258,8 +258,8 @@ module CORDIC_VEC_PIPE #(
 
     localparam ITERATIONS = DELAY - 1;
 
-    wire signed [DWIDTH:0] e_x_in = {x_in[DWIDTH-1], x_in};
-    wire signed [DWIDTH:0] e_y_in = {y_in[DWIDTH-1], y_in};
+    wire signed [DWIDTH+1:0] e_x_in = {x_in[DWIDTH-1], x_in, 1'b0};
+    wire signed [DWIDTH+1:0] e_y_in = {y_in[DWIDTH-1], y_in, 1'b0};
 
 
     localparam PFRAC = PWIDTH - 4;
@@ -272,7 +272,7 @@ module CORDIC_VEC_PIPE #(
 
     reg signed [PWIDTH-1:0] z [0:ITERATIONS];
 
-    reg signed [DWIDTH:0] x [0:ITERATIONS], y [0:ITERATIONS];
+    reg signed [DWIDTH+1:0] x [0:ITERATIONS], y [0:ITERATIONS];
     
     integer i;
     real cos_scale;

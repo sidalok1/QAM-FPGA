@@ -14,10 +14,17 @@ module MinDistDetector #(
     output reg valid
 );
 
-    initial {symbol, phase_error, valid} = 0;
 
-    reg signed [DWIDTH-1:0] const [0:ORDER-1][0:1];
-    initial $readmemb(CONSTELLATION, const);
+    localparam RE = 0;
+    localparam IM = 1;
+    reg [DWIDTH-1:0] const [0:(ORDER*2)-1];
+    // genvar g;
+    // generate
+    //     for ( g = 0; g < ORDER; g = g + 1 ) begin:const
+    //         reg signed [DWIDTH-1:0] val [0:1];
+    //         initial $readmemb(CONSTELLATION, val, g*2, (g*2) + 1);  
+    //     end
+    // endgenerate
 
     reg signed [DWIDTH-1:0] in_real = 0, in_imag = 0, 
         cordic_real = 0, cordic_imag = 0;
@@ -96,7 +103,10 @@ module MinDistDetector #(
         .valid(cordic_2_valid)
     );
 
-
+    initial begin
+        {symbol, phase_error, valid} = 0;
+        $readmemb(CONSTELLATION, const);
+    end
 
     always @ ( posedge clk ) begin
         if ( rst ) begin
@@ -143,22 +153,22 @@ module MinDistDetector #(
 
                 if ( idx < ORDER ) begin
                     cordic_symbol_in <= idx;
-                    cordic_real <= in_real - const[idx][0];
-                    cordic_imag <= in_imag - const[idx][1];
+                    cordic_real <= in_real - const[(idx*2)];
+                    cordic_imag <= in_imag - const[(idx*2)+1];
                 end
 
                 if ( cordic_symbol_out == current_min_symbol ) begin
                     current_min_mag <= cordic_mag;
-                    m_re <= const[cordic_symbol_out][0];
-                    m_im <= const[cordic_symbol_out][1] * -1;
+                    m_re <= const[(cordic_symbol_out*2)];
+                    m_im <= const[(cordic_symbol_out*2)+1] * -1;
                     // Multiplication by complex conjugate yields value
                     // whose phase is the difference of input values
                 end
                 else if ( cordic_mag < current_min_mag ) begin
                     current_min_mag <= cordic_mag;
                     current_min_symbol <= cordic_symbol_out;
-                    m_re <= const[cordic_symbol_out][0];
-                    m_im <= const[cordic_symbol_out][1] * -1;
+                    m_re <= const[(cordic_symbol_out*2)];
+                    m_im <= const[(cordic_symbol_out*2)+1] * -1;
                 end
             end
             ANGL: begin

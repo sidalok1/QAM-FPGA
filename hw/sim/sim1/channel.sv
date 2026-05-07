@@ -2,14 +2,16 @@
 
 module channel
 #(
-    parameter ifreq = 96_000_000,
-    parameter splr = 6_000_000,
+    parameter ifreq = 100_000_000,
+    parameter splr = 5_000_000,
     parameter DELAY = 1
 )
 (
     input wire clk,
     input wire [7:0] dac_data,
-    output reg [11:0] impaired_signal = 0
+    input wire adc_clk,
+    output reg [11:0] adc_data,
+    output reg adc_ovf
     );
     
     wire new_sample;
@@ -28,8 +30,7 @@ module channel
     
     integer seed = 0;
     localparam real maxint = $itor(32'hEF_FF_FF_FF);
-//    integer stdev = $rtoi(maxint * 0.0033); // snr -30db
-    integer stdev = $rtoi(maxint * 0.0033);    
+    integer stdev = $rtoi(maxint * 0.003);    
     function real awgn();
         return $dist_normal(seed, 0, stdev)/maxint;
     endfunction
@@ -39,20 +40,31 @@ module channel
         clipping = clipping > 3.3 ? 3.3 : clipping;
         return $rtoi((clipping / 3.3) * 12'hFFF);
     endfunction
+
+    function [0:0] ovf(input real spl);
+        return spl < 0 || spl > 3.3;
+    endfunction
     
     
     real dly [0:DELAY];
+    integer i;
+    initial begin
+        adc_data = 0;
+        adc_ovf = 0;
+        for ( i = 0; i <= DELAY; i++ )
+            dly[i] = 0;
+    end
     
     real dac_output = 0;
     
     //  Discrete transfer function numerator coefficients
-    real a1 = 0.9438;
+    real a1 = 0.03349282;
     real a2 = 0;
-    real a3 = -0.9438;
+    real a3 = -0.03349282;
     //  Discrete transfer function denominator coefficients
 //    real b1 = 1;
-    real b2 = -0.6427;
-    real b3 = -0.3483;
+    real b2 = -1.89473684;
+    real b3 = 0.93301435;
     
     real w1 = 0;
     real w2 = 0;
@@ -68,8 +80,15 @@ module channel
         for ( int i = DELAY; i > 0; i-- ) begin
             dly[i] = dly[i-1];
         end
-        impaired_signal = adc((dly[DELAY] * 0.25) + 1.4 + awgn());
         
+    end
+
+    real out_spl = 0;
+
+    always @ ( posedge adc_clk ) begin
+        out_spl = (dly[DELAY] * 15) + 1.4 + awgn();
+        adc_data = adc(out_spl);
+        adc_ovf = ovf(out_spl);
     end
     
 endmodule

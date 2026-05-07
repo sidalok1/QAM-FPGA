@@ -12,10 +12,8 @@ module IIR #(
     output wire signed [DWIDTH-1:0] filt_out
 );
 
-
-    reg signed [DWIDTH-1:0] coefficients [0:SOS-1][0:5];
-
-    reg signed [DWIDTH-1:0] b [0:SOS-1][0:2], a [0:SOS-1][0:2], x [0:SOS-1][0:2], y [0:SOS-1][0:2];
+    wire signed [DWIDTH-1:0] b [0:SOS-1][0:2], a [0:SOS-1][0:2]; 
+    reg signed [DWIDTH-1:0] x [0:SOS-1][0:2], y [0:SOS-1][0:2];
 
     reg signed [DWIDTH-1:0] mul_a [0:SOS-1], mul_b [0:SOS-1];
     wire signed [(DWIDTH*2)-1:0] mul_o [0:SOS-1];
@@ -25,23 +23,7 @@ module IIR #(
     localparam PIPELEN = 7;
     genvar g, h;
 
-    generate
-        assign stage_in[0] = filt_in;
-        for ( g = 0; g < SOS; g = g + 1 ) begin
-            PipeMult #(
-                .WIDTH_A(DWIDTH),
-                .WIDTH_B(DWIDTH),
-                .PIPELEN(PIPELEN)
-            ) multiplier (
-                .clk(clk), .en(en), .rst(rst),
-                .a(mul_a[g]), .b(mul_b[g]),
-                .r(mul_o[g])
-            );
-            if ( g != 0 )
-                assign stage_in[g] = y[g-1][1];
-        end
-        assign filt_out = y[SOS-1][1];
-    endgenerate
+    
 
     reg [2:0] idx = 0;
     reg valid_i = 0;
@@ -59,23 +41,54 @@ module IIR #(
         .o(valid_o)
     );
 
+    reg [DWIDTH-1:0] coe [0:(SOS*6)-1];
+    
+    generate
+        assign stage_in[0] = filt_in;
+        for ( g = 0; g < SOS; g = g + 1 ) begin
+            // reg signed [DWIDTH-1:0] coe_a [0:2], coe_b[0:2];
+            // initial begin
+            //     $readmemb(COEFFICIENTS, coe_b, g*6, (g*6)+2);
+            //     $readmemb(COEFFICIENTS, coe_a, (g*6)+3, (g*6)+5);
+            // end
+            assign b[g][0] = coe[(g*6)];
+            assign b[g][1] = coe[(g*6)+1];
+            assign b[g][2] = coe[(g*6)+2];
+            assign a[g][0] = coe[(g*6)+3];
+            assign a[g][1] = coe[(g*6)+4];
+            assign a[g][2] = coe[(g*6)+5];
+
+            PipeMult #(
+                .WIDTH_A(DWIDTH),
+                .WIDTH_B(DWIDTH),
+                .PIPELEN(PIPELEN)
+            ) multiplier (
+                .clk(clk), .en(en), .rst(rst),
+                .a(mul_a[g]), .b(mul_b[g]),
+                .r(mul_o[g])
+            );
+            if ( g != 0 )
+                assign stage_in[g] = y[g-1][1];
+        end
+        assign filt_out = y[SOS-1][1];
+    endgenerate
+
     integer i;
 
     initial begin
-        $readmemb(COEFFICIENTS, coefficients);
+        $readmemb(COEFFICIENTS, coe);
         for ( i = 0; i < SOS; i = i + 1 ) begin
-            if ( coefficients[i][3] != 2**DFRAC ) begin
-                $error("Highest order denominator coefficient of stage %d is %f, not 1", 
-                    i,
-                    $itor(coefficients[i][3])/$itor(2**DFRAC));
-            end
-            b[i][0] = coefficients[i][0];
-            b[i][1] = coefficients[i][1];
-            b[i][2] = coefficients[i][2];
+            
+            // $readmemb(COEFFICIENTS, b[i], i*6, (i*6) + 2);
+            // $readmemb(COEFFICIENTS, a[i], (i*6) + 3, (i*6) + 5);
 
-            a[i][0] = 0; // unused
-            a[i][1] = coefficients[i][4];
-            a[i][2] = coefficients[i][5];
+            // b[i][0] = coe[i][0];
+            // b[i][1] = coe[i][1];
+            // b[i][2] = coe[i][2];
+
+            // a[i][0] = coe[i][3];
+            // a[i][1] = coe[i][4];
+            // a[i][2] = coe[i][5];
 
             x[i][0] = 0;
             x[i][1] = 0;

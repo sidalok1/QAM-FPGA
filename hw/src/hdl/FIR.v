@@ -128,13 +128,21 @@ module FIR_Complex #(
     input wire signed [DWIDTH-1:0] i_real, i_imag,
     output reg signed [DWIDTH-1:0] o_real, o_imag
 );
-
-    reg signed [DWIDTH-1:0] taps [0:ORDER-1][0:1];
-    initial $readmemb(TAPS_FILE, taps);
+    localparam RE = 0;
+    localparam IM = 1;
+    reg [DWIDTH-1:0] taps [0:(ORDER*2)-1];
+    // genvar g;
+    // generate
+    //     for ( g = 0; g < ORDER; g = g + 1 ) begin:taps
+    //         reg signed [DWIDTH-1:0] val [0:1];
+    //         initial $readmemb(CONSTELLATION, val, g*2, (g*2) + 1);  
+    //     end
+    // endgenerate
 
     reg signed [DWIDTH-1:0] inputs [0:ORDER-1][0:1];
     integer i;
     initial begin
+        $readmemb(TAPS_FILE, taps);
         for ( i = 0; i < ORDER; i = i + 1 ) begin
             inputs[i][0] = 0;
             inputs[i][1] = 0;
@@ -204,8 +212,8 @@ module FIR_Complex #(
                     idx <= idx + 1;
                     xmul_r <= inputs[idx][0];
                     xmul_i <= inputs[idx][1];
-                    ymul_r <= taps[idx][0];
-                    ymul_i <= taps[idx][1];
+                    ymul_r <= taps[(idx*2)];
+                    ymul_i <= taps[(idx*2)+1];
                     valid_i <= 1;
                 end
                 else valid_i <= 0;

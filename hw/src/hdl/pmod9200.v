@@ -14,12 +14,11 @@ module PMOD9200 #(
 
     localparam ADC_CLK_GEN_FRQ = S_CLK_FRQ * 2;
 
-    localparam SHIFT_AMT = DWIDTH - 10;
+    localparam SHIFT_AMT = DFRAC - 10;
 
     wire clk_gen_en;
 
     reg [9:0] din;
-    reg [9:0] s_din;
 
     clockdiv #(
         .I_CLK_FRQ(I_CLK_FRQ),
@@ -37,14 +36,13 @@ module PMOD9200 #(
         adc_shdn <= 0;
         dout <= 0;
         din <= 0;
-        s_din <= 0;
     end
 
     always @ ( posedge clk ) 
         if ( rst ) begin
             dout <= 0;
             din <= 0;
-            s_din <= 0;
+            adc_clk <= 0;
         end
         else if ( en ) begin
             if ( clk_gen_en ) begin
@@ -52,8 +50,7 @@ module PMOD9200 #(
                     din <= adc_din; // posedge sampling
                 adc_clk <= ~adc_clk;
             end
-            s_din <= din + {1'b1, 9'b0}; // signed to unsigned
-            dout <= s_din << SHIFT_AMT;
+            dout <= din << SHIFT_AMT;
         end
 
 endmodule

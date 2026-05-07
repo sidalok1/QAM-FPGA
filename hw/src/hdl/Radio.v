@@ -1,206 +1,198 @@
 module Radio(
-    output wire [7:0] DAC_O,
+    output wire [7:0] dac,
     
-    input wire [9:0] ADC_I,
-    input wire ADC_OVF_I,
-    output wire ADC_N_EN_O,
-    output wire ADC_SHDN_O,
-    output wire ADC_CLK_O,
+    input wire [9:0] adc,
+    input wire adc_ovf,
+    output wire adc_n_en,
+    output wire adc_shdn,
+    output wire adc_clk,
+
+    input wire rst,
     
-    output wire [1:0] LED_O,
+    input wire start,
+    input wire n_en,
+
+    input wire usb_uart_rxd,
+    output wire usb_uart_txd,
     
-    input wire [31:0]                       s_axis_tdata,
-//    input wire [3:0]                        s_axis_tkeep,
-    input wire                              s_axis_tlast,
-    input wire                              s_axis_tvalid,
-    output wire                             s_axis_tready,
+    output wire [3:0] led,
     
-    output wire [31:0]                      m_axis_tdata,
-//    output wire [3:0]                       m_axis_tkeep,
-    output wire                             m_axis_tlast,
-    output wire                             m_axis_tvalid,
-    input wire                              m_axis_tready,
-    
-    output wire interrupt,
-    
-    input wire aclk
+    input wire clk
     );
     
-    parameter symb_width = 14;
+    parameter symb_width = 16;
     parameter symb_frac = 12;
-    parameter clk_freq = 96_000_000;
-    parameter spl_rate = 6_000_000;
+    parameter clk_freq = 100_000_000;
+    parameter spl_rate = 5_000_000;
     parameter carrier_frq = 1_000_000;
     parameter baud_rate = 50_000;
-    parameter sync_len = 32;
+    parameter order = 4;
+    parameter uart_baud = 1_000_000;
     
-    wire en = 1; 
     
-    wire clk;
+
+    wire rst_debounce;
+    debouncer #(
+        .N(15)
+    ) rst_debouncer (
+        .clk(clk),
+        .rst(1'b0),
+        .in(rst),
+        .out(rst_debounce)
+    );
     
-    assign clk = aclk;
+    wire n_en_debounce;
+    wire en = ~n_en_debounce;
+    debouncer #(
+        .N(15)
+    ) en_debouncer (
+        .clk(clk), .rst(rst_debounce),
+        .in(n_en),
+        .out(n_en_debounce)
+    ); 
+
+    wire start_debounce;
+    debouncer #(
+        .N(15)
+    ) start_debouncer (
+        .clk(clk),
+        .rst(rst_debounce),
+        .in(start),
+        .out(start_debounce)
+    );
     
     wire new_sample;
     clockdiv #(
         .I_CLK_FRQ(clk_freq),
         .FREQUENCY(spl_rate)
     ) sample_rate_generator (
-        .rst(0),
+        .rst(rst_debounce),
         .en(en),
         .i_clk(clk),
         .o_clk(new_sample)
     );
     
-    wire signed [symb_width-1:0] symbol_generator_out;
+    pulse_generator #(
+        .pulse_width(1000)
+    ) adc_overflow_pulse_generator (
+        .clk(clk), .rst(rst_debounce), .start(adc_ovf),
+        .sig(led[2])
+    );
+    wire signal_detected;
     
-    wire rx_bit, new_bit, msg_found, inv_msg_found;
+    wire signed [symb_width-1:0] sym_gen_I, sym_gen_Q;
+    wire signed [symb_width:0] mod_out;
     
-    wire msg_edge;
     
-    edgedetect 
-        msg_edge_detector (
-            .clk(clk),
-            .rst(0),
-            .sig(msg_found | inv_msg_found),
-            .en(msg_edge)
-        );
+    wire new_symbol;
+    wire [$clog2(order)-1:0] rx_symbol;
+    wire interrupt;
     
-    pulse_generator #( .pulse_width(50_000_000) )
-        msg_pulse_generator (
-            .clk(clk),
-            .rst(0),
-            .start(msg_edge),
-            .sig(LED_O[0])
-        );
-        
-    wire start_tx;
-    clockdiv #(
-        .I_CLK_FRQ(clk_freq),
-        .FREQUENCY(5000)
-    ) tx_start_clk (
-        .rst(0),
-        .en(en),
-        .i_clk(clk),
-        .o_clk(start_tx)
+    wire tx_start;
+    pulse_generator #(
+        .pulse_width(1000)
+    ) tx_start_pulse_generator (
+        .clk(clk), .rst(rst_debounce), .start(tx_start),
+        .sig(led[3])
     );
     
     Controller #(
-        .SYMBOL_WIDTH(symb_width),
-        .SYMBOL_FRAC(symb_frac),
-        .SAMPLE_RATE(spl_rate),
-        .SYMBOL_RATE(baud_rate),
-        .SYNC_LEN(sync_len)
-    ) SYMBGEN (
-        .clk(clk),
-        .en(en),
-        .rst(0),
-        .start(start_tx),
-        .new_sample(new_sample),
-        .sample(symbol_generator_out),
-        
-        //  Pass-through of axi stream signals
-        .s_axis_tdata(s_axis_tdata),
-//        .s_axis_tkeep(s_axis_tkeep),
-        .s_axis_tlast(s_axis_tlast),
-        .s_axis_tvalid(s_axis_tvalid),
-        .s_axis_tready(s_axis_tready),
-        
-        .m_axis_tdata(m_axis_tdata),
-//        .m_axis_tkeep(m_axis_tkeep),
-        .m_axis_tlast(m_axis_tlast),
-        .m_axis_tvalid(m_axis_tvalid),
-        .m_axis_tready(m_axis_tready),
-        
-        .interrupt(interrupt),
-        
-        .rx_bit(rx_bit),
-        .new_bit(new_bit),
-        .msg_found(msg_found),
-        .inv_msg_found(inv_msg_found)
-    );
-    
-    wire signed [symb_width-1:0] pulse_shape_out;
-
-
-    RRC_Filter #(
         .DWIDTH(symb_width),
         .DFRAC(symb_frac),
-        .PIPELEN(3),
-        .fixed_gain(3)
-    ) psfilter (
+        .SAMPLE_RATE(spl_rate),
+        .SYMBOL_RATE(baud_rate),
+        .MODULATION_ORDER(order),
+        .UART_BAUD(uart_baud)
+        
+    ) main_controller (
         .clk(clk),
-        .rst(0),
-        .in_sample(symbol_generator_out),
-        .out_sample(pulse_shape_out)
+        .en(en),
+        .rst(rst_debounce),
+        .start(start_debounce),
+        .new_sample(new_sample),
+        .signal_detected(signal_detected),
+        .I(sym_gen_I),
+        .Q(sym_gen_Q),
+        .tx_started(tx_start),
+        
+        .uart_rx(usb_uart_rxd),
+        .uart_tx(usb_uart_txd),
+        
+        .new_symbol(new_symbol),
+        .rx_symbol(rx_symbol),
+        .interrupt(interrupt)
     );
     
-    wire signed [symb_width-1:0] I, Q;
+//    reg [7:0] dac_data = 0;
+//    always @ ( posedge clk ) dac_data = ((sym_gen_I + sym_gen_Q) >>> (symb_width-8)) + 8'h80;
+//    assign dac = dac_data;
     
-    IQGenerator #(
-        .SYMBOL_WIDTH(symb_width),
-        .SYMBOL_FRAC(symb_frac),
-        .SAMPLE_RATE(spl_rate),
-        .FREQUENCY(carrier_frq),
-        .RES(8)
-    ) carrier_wave_generator (
+    pulse_generator #(
+        .pulse_width(1000)
+    ) interrupt_pulse_generator (
+        .clk(clk), .rst(rst_debounce), .start(interrupt),
+        .sig(led[1])
+    );
+    
+    wire signed [symb_width-1:0] I_ps, Q_ps;
+    
+    PolyphaseFilterUp #(
+        .DWIDTH(symb_width),
+        .DFRAC(symb_frac)
+    ) I_ps_filt_tx (
         .clk(clk),
-        .rst(0),
+        .rst(rst_debounce),
         .en(en),
         .new_sample(new_sample),
-        .offset(0),
-        .I(I),
-        .Q(Q)
+        .in_sample(sym_gen_I),
+        .out_sample(I_ps)
     );
     
-    wire signed [(2*symb_width)-1:0] modulation_product;
-    
-    PipeMult #(
-        .WIDTH_A(symb_width),
-        .WIDTH_B(symb_width),
-        .PIPELEN(3)
-    ) modulation_mult_pipeline (
+    PolyphaseFilterUp #(
+        .DWIDTH(symb_width),
+        .DFRAC(symb_frac)
+    ) Q_ps_filt_tx (
         .clk(clk),
+        .rst(rst_debounce),
         .en(en),
-        .rst(0),
-        .a(I),
-        .b(pulse_shape_out),
-        .r(modulation_product)
+        .new_sample(new_sample),
+        .in_sample(sym_gen_Q),
+        .out_sample(Q_ps)
     );
     
-    reg signed [symb_width-1:0] mod_out = 0;
-    reg [symb_width-1:0] offset = 0;
-    assign DAC_O = offset[symb_width-1:symb_width-8];
+    CORDIC_MOD #(
+        .DWIDTH(symb_width),
+        .DFRAC(symb_frac),
+        .SAMPLE_RATE(spl_rate),
+        .CARRIER_FRQ(carrier_frq)
+    ) cordic_modulator (
+        .clk(clk),
+        .rst(rst_debounce),
+        .en(en),
+        .new_sample(new_sample),
+        .I(I_ps),
+        .Q(Q_ps),
+        .passband(mod_out)
+    );
+
+    wire signed [symb_width+16:0] amp_out;
+    localparam reg signed [15:0] gain = $rtoi(1.5 * 2**8);
+    PipeMult #(
+        .WIDTH_A(symb_width+1),
+        .WIDTH_B(16)
+    ) amplifier (
+        .clk(clk), .en(en), .rst(rst_debounce),
+        .a(mod_out), .b(gain),
+        .r(amp_out)
+    );
+
+    reg [7:0] dac_data = 0;
+    always @ ( posedge clk ) dac_data = (amp_out >>> (symb_width)) + 8'h80;
+    assign dac = dac_data;
     
-    localparam symb_whole       = symb_width - symb_frac;
-    //  Two's complement symbols parameterized to given bitwidths
-    localparam symb_zero        = {symb_width{1'b0}};
-    localparam symb_one         = {{symb_whole-1{1'b0}}, 1'b1, {symb_frac{1'b0}}};
-    localparam symb_neg_one     = {{symb_whole{1'b1}}, {symb_frac{1'b0}}};
-    localparam symb_half        = symb_one / 2;
-    localparam symb_quart       = symb_one / 4;
-    localparam symb_eigth       = symb_one / 8;
     
+    wire signed [symb_width-1:0] rx_signal;
     
-    
-    //  Receiver code
-    
-//    assign {ADC_N_EN_O, ADC_SHDN_O} = 0;
-    
-//    wire [11:0] adc_out;
-    
-//    parameter adc_spl_rate = 3_000_000;
-    
-//    max11108_controller adc_controller (
-//        .clk(clk),
-//        .rst(0),
-//        .en(1),
-//        .din(SDO_I),
-//        .dout(adc_out),
-//        .sclk(SCK_O),
-//        .cs(CS_O)
-//    );
-    
-    wire signed [symb_width-1:0] adc_data;
     PMOD9200 #(
         .I_CLK_FRQ(clk_freq),
         .S_CLK_FRQ(spl_rate),
@@ -208,200 +200,126 @@ module Radio(
         .DFRAC(symb_frac)
     ) adc_controller (
         .clk(clk),
-        .rst(0),
+        .rst(rst_debounce),
         .en(1),
-        .adc_din(ADC_I),
-        .dout(adc_data),
-        .adc_clk(ADC_CLK_O),
-        .adc_n_en(ADC_N_EN_O),
-        .adc_shdn(ADC_SHDN_O)
+        .adc_din(adc),
+        .dout(rx_signal),
+        .adc_clk(adc_clk),
+        .adc_n_en(adc_n_en),
+        .adc_shdn(adc_shdn)
     );
     
-    
-//    Upsample #(
-//        .OUT_RATE(spl_rate),
-//        .IN_RATE(adc_spl_rate),
-//        .SYMBOL_WIDTH(symb_width)
-//    ) adc_samplerate_converter (
-//        .clk(clk),
-//        .en(1),
-//        .rst(0),
-//        .new_sample(new_sample),
-//        .i_sample(adc_offset),
-//        .o_sample(upsampled_out)
-//    );
-    
-    wire signed [13:0] filtered_adc;
-    FIR #(
-        .SYMBOL_WIDTH(symb_width),
-        .SYMBOL_FRAC(symb_frac),
-        .FILT_TAPS(12),
-        .memfile("upsample_lp.mem")
-    ) ADC_filter (
+
+    wire signed [symb_width-1:0] rx_filt_out;
+    IIR #(
+        .DWIDTH(symb_width),
+        .DFRAC(symb_frac),
+        .SOS(5),
+        .COEFFICIENTS("rx_iir.mem")
+    ) rx_filter (
         .clk(clk),
-        .en(1),
-        .rst(0),
+        .en(en),
+        .rst(rst_debounce),
         .new_sample(new_sample),
-        .i_sample(adc_data),
-        .o_sample(filtered_adc)
+        .filt_in(rx_signal),
+        .filt_out(rx_filt_out)
     );
-    
-    wire signed [symb_width-1:0] ac_signal;
-    
-    DC_Decouple #(
-        .SYMBOL_WIDTH(symb_width),
-        .SYMBOL_FRAC(symb_frac),
-        .window(64),
-        .kp(1),
-        .ki(0),
-        .kd(0)
-    ) dc_signal_decoupler (
-        .clk(clk),
-        .rst(0),
-        .en(1),
-        .new_sample(new_sample),
-        .sample(filtered_adc),
-        .ac_signal(ac_signal)
-    );
-    
-    wire signed[13:0] agc_out;
-    wire signal_detected;
-    
-    wire reset_rx;
-    edgedetect #(
-        .DETECT_NEGEDGE(0)
-    ) new_signal_detector (
-        .clk(clk),
-        .rst(0),
-        .sig(signal_detected),
-        .en(reset_rx)
-    );
-    
+
+
     signal_detector #(
         .SYMBOL_WIDTH(symb_width),
         .SYMBOL_FRAC(symb_frac),
-        .N(256),
-        .dB_THRESH(-20)
-    ) channel_detector (
-        .clk(clk),
-        .en(1),
-        .rst(0),
+        .N(64),
+        .dB_THRESH(-40)
+    ) signal_power_detector (
+        .clk(clk), .en(en), .rst(rst_debounce),
         .new_sample(new_sample),
-        .sample(ac_signal),
+        .sample(rx_filt_out),
         .signal_detected(signal_detected)
     );
     
-    PGA #(
-        .SYMBOL_WIDTH(symb_width),
-        .SYMBOL_FRAC(symb_frac),
-        .N(360),
-        .kp(0.03125),
-        .ki(0.0),
-        .kd(0.0),
-        .TARGET(0.8)
-    ) auto_amp (
-        .clk(clk),
-        .en(signal_detected),
-        .rst(reset_rx),
-        .new_sample(new_sample),
-        .in_sample(ac_signal),
-        .out_sample(agc_out)
+    pulse_generator #(
+        .pulse_width(1000)
+    ) signal_detected_pulse_generator (
+        .clk(clk), .rst(rst_debounce), .start(signal_detected),
+        .sig(led[0])
     );
     
-    pulse_generator #( .pulse_width(1000) )
-        rx_pulse_generator (
-            .clk(clk),
-            .rst(0),
-            .start(signal_detected),
-            .sig(LED_O[1])
-        );
+    wire signed [symb_width-1:0] I_rx, Q_rx;
     
-    wire signed [symb_width-1:0] unfiltered_in_phase;
-    Costas_Loop #(
-        .SYMBOL_WIDTH(symb_width),
-        .SYMBOL_FRAC(symb_frac),
-        .CARRIER_FRQ(carrier_frq),
-        .kp(0.01),
-        .ki(0.00002),
-        .kd(0)
-    ) demodulator (
-        .clk(clk),
-        .rst(reset_rx),
-        .en(1),
-        .new_sample(new_sample),
-        .modulated_input(agc_out),
-        .I_component(unfiltered_in_phase)
-    );
-    
-    wire signed [symb_width-1:0] filtered_in_phase;
-    
-    RRC_Filter #(
+    CORDIC_DEMOD #(
         .DWIDTH(symb_width),
         .DFRAC(symb_frac),
-        .PIPELEN(3),
-        .fixed_gain(-3)
-    ) matched_filter (
-        .clk(clk),
-        .rst(0),
-        .in_sample(unfiltered_in_phase),
-        .out_sample(filtered_in_phase)
-    );
-    
-    wire signed [symb_width-1:0] symbol;
-    wire new_symbol;
-    
-    Early_Late_TED #(
-        .SYMBOL_WIDTH(symb_width),
-        .SYMBOL_FRAC(symb_frac),
-        .SPS(spl_rate / baud_rate),
-        .kp(1.5),
-        .ki(0.1),
-        .kd(5)
-    ) sampler (
-        .clk(clk),
-        .rst(reset_rx),
-        .en(1),
-        .sample(filtered_in_phase),
+        .SAMPLE_RATE(spl_rate),
+        .CARRIER_FRQ(carrier_frq)
+    ) cordic_demodulator (
+        .clk(clk), .en(en), .rst(rst_debounce),
         .new_sample(new_sample),
-        .symbol_ready(new_symbol),
-        .symbol(symbol)
+        .passband(rx_filt_out),
+        .I(I_rx), .Q(Q_rx)
     );
     
-    Symbol_Bit_Mapper #(
-        .SYMBOL_WIDTH(symb_width),
-        .SYMBOL_FRAC(symb_frac)
-    ) symb_to_bits (
+    wire signed [symb_width-1:0] I_ps_rx, Q_ps_rx;
+    
+    wire I_polyphase_ready, Q_polyphase_ready;
+    wire new_rx_sample = I_polyphase_ready | Q_polyphase_ready;
+    
+    PolyphaseFilterDown #(
+        .DWIDTH(symb_width),
+        .DFRAC(symb_frac)
+    ) I_ps_filt_rx (
         .clk(clk),
-        .rst(0),
-        .en(signal_detected),
-        .symbol(symbol),
+        .rst(rst_debounce),
+        .en(en),
+        .new_sample(new_sample),
+        .in_sample(I_rx),
+        .out_sample(I_ps_rx),
+        .new_rx_sample(I_polyphase_ready)
+    );
+    
+    PolyphaseFilterDown #(
+        .DWIDTH(symb_width),
+        .DFRAC(symb_frac)
+    ) Q_ps_filt_rx (
+        .clk(clk),
+        .rst(rst_debounce),
+        .en(en),
+        .new_sample(new_sample),
+        .in_sample(Q_rx),
+        .out_sample(Q_ps_rx),
+        .new_rx_sample(Q_polyphase_ready)
+    );
+    
+    
+    
+    wire signed [symb_width-1:0] I_eq, Q_eq;
+    
+    Sampler #(
+        .DWIDTH(symb_width),
+        .DFRAC(symb_frac),
+        .MOD_ORDER(order)
+    ) symbol_aware_sampler (
+        .clk(clk), .en(en), .rst(rst_debounce),
+        .new_sample(new_rx_sample),
+        .I_i(I_ps_rx),
+        .Q_i(Q_ps_rx),
+        .signal_detected(signal_detected),
+        .I_o(I_eq),
+        .Q_o(Q_eq),
+        .rx_symbol(rx_symbol),
         .new_symbol(new_symbol),
-        .rx_bit(rx_bit),
-        .new_bit(new_bit)
+        .interrupt(interrupt)
     );
     
-    ila_0 signal_analyzer (
-        .clk(clk), // input wire clk
+//    ila_0 logic_analyzer (
+//        .clk(clk), // input wire clk
     
     
-        .probe0(ac_signal), // input wire [13:0]  probe0  
-        .probe1(agc_out), // input wire [13:0]  probe1 
-        .probe2(filtered_in_phase), // input wire [13:0]  probe2 
-        .probe3(signal_detected), // input wire [0:0]  probe3 
-        .probe4(new_sample), // input wire [0:0]  probe4
-        .probe5(SYMBGEN.in_bit),
-        .probe6(new_bit),
-        .probe7({msg_found, inv_msg_found}),
-        .probe8(SYMBGEN.rx_state),
-        .probe9(SYMBGEN.code),
-        .probe10(SYMBGEN.rx_len)
-    );
-    
-    always @ ( posedge clk ) if ( en ) begin
-        mod_out <= modulation_product >>> symb_frac;
-        offset <= {~mod_out[symb_width-1], mod_out[symb_width-2:0]};
-
-    end
-    
+//        .probe0(main_controller.tx_state), // input wire [6:0]  probe0  
+//        .probe1(dac), // input wire [7:0]  probe1 
+//        .probe2(adc), // input wire [9:0]  probe2 
+//        .probe3(signal_detected), // input wire [0:0]  probe3 
+//        .probe4(symbol_aware_sampler.state) // input wire [4:0]  probe4
+//    );
     
 endmodule
