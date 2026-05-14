@@ -1,15 +1,17 @@
 /*
 Multicycle implementation of an upsampling polyphase fir filter. In order for 
 this module to function properly it should be ensured that there are more
-than SPAN + PIPELEN clock cycles in between each output sample
+than ORDER/UP clock cycles in between each output sample, and that ORDER is
+evenly divisible by UP
 */
 
 module PolyphaseFilterUp #(
     parameter DWIDTH = 10,
     parameter DFRAC = 8,
-    parameter ORDER = 1201,
+    parameter ORDER = 900,
     parameter COEFILE = "rrc.mem",
-    parameter UP = 100
+    parameter UP = 100,
+    parameter PIPELEN = 2
 ) (
     input clk, en, rst,
     input new_sample,
@@ -17,10 +19,11 @@ module PolyphaseFilterUp #(
     output reg [DWIDTH-1:0] out_sample
 );
 
-    localparam SPAN = (ORDER/UP) + 1;
+    localparam SPAN = (ORDER/UP);
     
     reg [$clog2(UP)-1:0] idx = 0;
-    reg [$clog2(SPAN)-1:0] jdx = 0;
+    reg [$clog2(SPAN):0] jdx = 0;
+    reg [$clog2(SPAN):0] kdx = 0;
 
 
     reg signed [DWIDTH-1:0] inputs [0:SPAN-1];
@@ -28,12 +31,9 @@ module PolyphaseFilterUp #(
     reg signed [DWIDTH-1:0] mult_in_a = 0, mult_in_b = 0;
     wire signed [(DWIDTH*2)-1:0] mult_out;
     reg signed  [(DWIDTH*2)-1:0] sum = 0;
-    wire signed [(DWIDTH*2)-1:0] res = sum >>> (DFRAC - ($clog2(SPAN)));
 
     reg pipe_in = 0;
-    reg reset_pipe = 0;
 
-    localparam PIPELEN = 2;
 
     PipeMult #(
         .WIDTH_A(DWIDTH),
@@ -55,11 +55,14 @@ module PolyphaseFilterUp #(
         .PIPELEN(PIPELEN)
     ) signal_pipe (
         .clk(clk),
-        .rst(rst | reset_pipe),
+        .rst(rst),
         .en(en),
         .i(pipe_in),
         .o(pipe_out)
     );
+
+    wire signed [(DWIDTH*2)-1:0] sum_next = sum + mult_out;
+    wire signed [(DWIDTH*2)-1:0] res = sum_next >>> (DFRAC - ($clog2(SPAN)));
 
     // reg signed [DWIDTH-1:0] taps [0:SPAN-1][0:UP-1];
     reg signed [DWIDTH-1:0] taps [0:(SPAN*UP)-1];
@@ -67,9 +70,9 @@ module PolyphaseFilterUp #(
     initial begin
         for ( i = 0; i < SPAN; i = i + 1 ) begin
             inputs[i] = 0;
-            for ( j = 0; j < UP; j = j + 1 ) begin
-                taps[(i*UP)+j] = 0;
-            end
+            // for ( j = 0; j < UP; j = j + 1 ) begin
+            //     taps[(i*UP)+j] = 0;
+            // end
             // $readmemb(COEFILE, taps[i], (i*UP), (i*UP)+UP-1);
         end
         
@@ -81,10 +84,10 @@ module PolyphaseFilterUp #(
         if ( rst ) begin
             idx <= 0;
             jdx <= 0;
+            kdx <= 0;
             mult_in_a <= 0;
             mult_in_b <= 0;
             pipe_in <= 0;
-            reset_pipe <= 0;
             sum <= 0;
             for ( i = 0; i < SPAN; i = i + 1 ) begin
                 inputs[i] <= 0;
@@ -92,13 +95,11 @@ module PolyphaseFilterUp #(
             out_sample <= 0;
         end
         else if ( en ) begin
-            reset_pipe <= 0;
             if ( new_sample ) begin
-                jdx <= 0;
-                pipe_in <= 0;
-                reset_pipe <= 1;
-                out_sample <= res[DWIDTH-1:0];
-                sum <= 0;
+                mult_in_a <= in_sample;
+                mult_in_b <= taps[idx];
+                pipe_in <= 1;
+                jdx <= 1;
                 if ( idx == UP - 1 ) begin
                     idx <= 0;
                     inputs[0] <= in_sample;
@@ -111,19 +112,27 @@ module PolyphaseFilterUp #(
                 end
             end
             else begin
-                // by default, accumulator assume multiplier has invalid output
                 pipe_in <= 0;
                 if ( jdx < SPAN ) begin
                     mult_in_a <= inputs[jdx];
                     mult_in_b <= taps[(jdx*UP)+idx];
-                    // signal to accumulator multiplier has valid output
-                    pipe_in <= 1; 
                     jdx <= jdx + 1;
                 end
-                if ( pipe_out ) begin
-                    // if multiplier output is valid, accumulate
-                    sum <= sum + mult_out;
+                else begin
+                    mult_in_a <= 0;
+                    mult_in_b <= 0;
                 end
+            end
+        end
+
+        if ( pipe_out ) begin
+            kdx <= 0;
+            sum <= mult_out;
+            out_sample <= res[DWIDTH-1:0];
+        end 
+        else begin
+            if ( kdx < SPAN-1 ) begin
+                sum <= sum_next;
             end
         end
     end

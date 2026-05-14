@@ -91,7 +91,6 @@ module Sampler #(
     
     
     wire signed [DWIDTH-1:0] I_eq, Q_eq;
-    reg signed [DWIDTH-1:0] I_eq_n = 0, Q_eq_n = 0;
     wire cordic_rot_valid;
 
     localparam CORDIC_DELAY = 40;
@@ -213,14 +212,10 @@ module Sampler #(
     );
 
     always @ ( posedge clk ) begin
-        if ( rst ) begin
+        if ( rst | interrupt ) begin
             I_o <= 0;
             Q_o <= 0;
-            I_eq_n <= 0;
-            Q_eq_n <= 0;
             state <= IDLE;
-            zero_offset_I <= 0;
-            zero_offset_Q <= 0;
             magn_gain <= 2**GFRAC;
             freq_offset <= 0;
             phase_offset <= 0;
@@ -251,125 +246,112 @@ module Sampler #(
                 phase_reg <= add_phase(phase_reg, freq_offset);
                 phase_err_n <= phase_err;
                 phase_err_n_neg <= phase_err * -1;
-                freq_err <= add_phase(phase_err, phase_err_n_neg) / 2;
+                freq_err <= add_phase(phase_err, phase_err_n_neg);
                 I_o <= I_eq;
                 Q_o <= Q_eq;
-                I_eq_n <= I_o;
-                Q_eq_n <= Q_o;
             end
             else begin
                 mult_valid_i <= 0;
             end
 
             start_min_dist_detector <= 0;
-            if ( interrupt ) begin
-                state <= IDLE;
-                idx <= 0;
-                magn_gain <= 2**GFRAC;
-                freq_offset <= 0;
-                phase_offset <= 0;
-            end else begin
-                case ( state )
-                IDLE: begin
-                    if ( new_sample ) begin
-                        if ( idx > 6*SPS ) begin
-                            idx <= 0;
-                            state <= EQ_MAG;
-                        end
-                        else begin
-                            if ( signal_detected )
-                                idx <= idx + 1;
-                            else 
-                                idx <= 0;
-                        end
+            case ( state )
+            IDLE: begin
+                if ( new_sample ) begin
+                    if ( idx > 4*SPS ) begin
+                        idx <= 0;
+                        state <= EQ_MAG;
                     end
-                end
-                EQ_MAG: begin
-                    if ( new_sample ) begin
-                        magn_gain <= magn_gain - (magnitude_err >>> 2);
-                        if ( idx == 64 ) begin
-                            state <= EQ_FRQ;
-                            idx <= 0;
-                        end
-                        else begin
+                    else begin
+                        if ( signal_detected )
                             idx <= idx + 1;
-                        end
+                        else 
+                            idx <= 0;
                     end
                 end
-                EQ_FRQ: begin
-                    if ( new_sample ) begin
-                        if ( idx == 64 ) begin
-                            freq_offset <= (freq_err_sum / 64);
-                            freq_err_sum <= 0;
-                            idx <= 0;
-                            state <= FRAME;
-                            phase_offset <= phase_err;
-                        end 
-                        else begin
-                            idx <= idx + 1;
-                            freq_err_sum <= freq_err_sum + freq_err;    
-                        end
+            end
+            EQ_MAG: begin
+                if ( new_sample ) begin
+                    magn_gain <= magn_gain - (magnitude_err >>> 2);
+                    if ( idx == 32 ) begin
+                        state <= EQ_FRQ;
+                        idx <= 0;
+                    end
+                    else begin
+                        idx <= idx + 1;
                     end
                 end
-                FRAME: begin
-                    if ( new_sample ) begin
-                        frame_mag_n <= frame_mag;
-                        frame_phs_n <= frame_phs;
-                        if ( !signal_detected )
-                            jdx <= jdx + 1;
-                        else
-                            jdx <= 0;
-                        if ( jdx == 3*SPS ) begin
-                            // If three symbols have passed without a signal being detected
-                            state <= IDLE;
-                            magn_gain <= 2**GFRAC;
-                            freq_offset <= 0;
-                            phase_offset <= 0;
-                        end
-                    end else begin
-                        if ( frame_mag > frame_detect_threshold && frame_mag < frame_mag_n ) begin
-                            state <= SAMPLE;
-                            phase_offset <= add_phase(phase_offset, frame_phs_n);
-                            zero_offset_I <= 0;
-                            zero_offset_Q <= 0;
-                            idx <= 0;
-                            jdx <= 0;
-                        end
+            end
+            EQ_FRQ: begin
+                if ( new_sample ) begin
+                    if ( idx == 128 ) begin
+                        freq_offset <= (freq_err_sum / 128);
+                        freq_err_sum <= 0;
+                        idx <= 0;
+                        state <= FRAME;
+                        phase_offset <= phase_err;
+                    end 
+                    else begin
+                        idx <= idx + 1;
+                        freq_err_sum <= freq_err_sum + freq_err;    
                     end
                 end
-                SAMPLE: begin
-                    if ( new_sample ) begin
-                        if ( idx == SPS - 1 ) begin
-                            min_dist_detector_real <= I_eq - zero_offset_I;
-                            min_dist_detector_imag <= Q_eq - zero_offset_Q;
-                            start_min_dist_detector <= 1;
-                            idx <= 0;
-                        end
-                        else begin
-                            idx <= idx + 1;
-                        end
-
-                        if ( !signal_detected )
-                            jdx <= jdx + 1;
-                        else
-                            jdx <= 0;
-                    end
-                    else if ( min_dist_dvalid ) begin
-                        phase_offset <= add_phase(phase_offset, min_dist_phase_err);
-                        min_dist_phase_err_sum <= add_phase(min_dist_phase_err_sum, min_dist_phase_err);
-                    end
-
-                    if ( jdx == 8*SPS ) begin
-                        state <= IDLE;
+            end
+            FRAME: begin
+                if ( new_sample ) begin
+                    frame_mag_n <= frame_mag;
+                    frame_phs_n <= frame_phs;
+                    if ( !signal_detected )
+                        jdx <= jdx + 1;
+                    else
+                        jdx <= 0;
+                    if ( jdx == 3*SPS ) begin
+                        // If three symbols have passed without a signal being detected
                         state <= IDLE;
                         magn_gain <= 2**GFRAC;
                         freq_offset <= 0;
                         phase_offset <= 0;
-                        min_dist_phase_err_sum <= 0;
+                    end
+                end else begin
+                    if ( frame_mag > frame_detect_threshold && frame_mag < frame_mag_n ) begin
+                        state <= SAMPLE;
+                        phase_offset <= add_phase(phase_offset, frame_phs_n);
+                        idx <= 0;
+                        jdx <= 0;
                     end
                 end
-                endcase
             end
+            SAMPLE: begin
+                if ( new_sample ) begin
+                    if ( idx == SPS - 1 ) begin
+                        min_dist_detector_real <= I_eq;
+                        min_dist_detector_imag <= Q_eq;
+                        start_min_dist_detector <= 1;
+                        idx <= 0;
+                    end
+                    else begin
+                        idx <= idx + 1;
+                    end
+
+                    if ( !signal_detected )
+                        jdx <= jdx + 1;
+                    else
+                        jdx <= 0;
+                end
+                else if ( min_dist_dvalid ) begin
+                    // phase_offset <= add_phase(phase_offset, min_dist_phase_err);
+                    min_dist_phase_err_sum <= add_phase(min_dist_phase_err_sum, min_dist_phase_err);
+                end
+
+                if ( jdx == 4*SPS ) begin
+                    state <= IDLE;
+                    magn_gain <= 2**GFRAC;
+                    freq_offset <= 0;
+                    phase_offset <= 0;
+                    min_dist_phase_err_sum <= 0;
+                end
+            end
+            endcase
         end
     end
 

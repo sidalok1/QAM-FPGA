@@ -4,8 +4,10 @@ module tb();
 
     parameter clk_freq = 100_000_000;
     parameter spl_rate = 5_000_000;
-    
-    parameter uart_baud = 1_000_000;
+    parameter carrier_freq = 1_000_000;
+    parameter CFO = $rtoi($itor(carrier_freq) * 0.001);
+     
+    parameter uart_baud = 115200;
 
     reg clk;
     always #`HALF_PERIOD clk = (clk === 1'b0);
@@ -25,7 +27,10 @@ module tb();
 
     wire uart_rx, uart_tx;
 
-    Radio UUT (
+    Radio #(
+        .carrier_frq_tx(carrier_freq),
+        .carrier_frq_rx(carrier_freq + CFO)
+    ) UUT (
         .dac(dac_out),
 
         .adc(adc_in[11:2]),
@@ -108,8 +113,8 @@ module tb();
     initial begin
         
         start = 1;
-        #2_000_000 start = 0;
-        #2_000_000 write_uart("A message that is nontrivial in size!!!");
+        // #2_000_000 start = 0;
+        // #2_000_000 write_uart("A message that is nontrivial in size!!!");
     end
     
 endmodule

@@ -1,7 +1,7 @@
 module PolyphaseFilterDown #(
     parameter DWIDTH = 10,
     parameter DFRAC = 8,
-    parameter ORDER = 1201,
+    parameter ORDER = 801,
     parameter COEFILE = "rrc_d",
     parameter DN = 10
 ) (
@@ -21,7 +21,7 @@ module PolyphaseFilterDown #(
     reg signed [(DWIDTH*2)-1:0] total = 0;
 
     // fixed gain
-    wire signed [(DWIDTH*2)-1:0] res = total >>> (DFRAC - 2);
+    wire signed [(DWIDTH*2)-1:0] res = total >>> (DFRAC);
 
     localparam PIPELEN = 2;
 

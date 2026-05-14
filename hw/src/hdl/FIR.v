@@ -35,7 +35,7 @@ module FIR
     reg valid_i = 0;
     wire valid_o;
 
-    localparam PIPELEN = 7;
+    localparam PIPELEN = 3;
 
     PipeMult #(
         .WIDTH_A(DWIDTH),
@@ -89,7 +89,7 @@ module FIR
             for ( i = 1; i < ORDER; i = i + 1 ) begin
                 input_buffer[i] <= input_buffer[i-1];
             end
-            filt_out <= acc;
+            filt_out <= acc >>> DFRAC;
             acc <= 0;
             idx <= 0;
             mul_a <= 0;
@@ -107,7 +107,7 @@ module FIR
             end
 
             if ( valid_o ) begin
-                acc <= acc + (mul_o >>> DFRAC);
+                acc <= acc + mul_o;
             end
         end
     end

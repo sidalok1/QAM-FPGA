@@ -88,7 +88,7 @@ module TX_Controller #(
   parameter CLK_FREQ                        = 100_000_000,
   parameter SYMBOL_RATE                     = 50_000,
   parameter FRAME_LEN                       = 16,
-  parameter EQ_LEN                          = 18,
+  parameter EQ_LEN                          = 16,
   parameter UART_BAUD                       = 1115200
 )
 (
@@ -171,13 +171,15 @@ module TX_Controller #(
     $readmemb(CONSTELLATION, const);
     $readmemb(FRAME_SEQ, frame_header);
     bytes = 0;
-    msg_len = (2*8)/BITS_PER_SYMBOL; 
+    msg_len = (10*8)/BITS_PER_SYMBOL; 
     for ( i = 0; i < MAX_BYTES; i = i + 1 ) begin
-      case ( i ) 
-      0:        buff[i] = "h";
-      1:        buff[i] = "i";
-      default:  buff[i] = 8'b0;
-      endcase
+      // case ( i ) 
+      // 0:        buff[i] = "h";
+      // 1:        buff[i] = "i";
+      // default:  buff[i] = 8'b0;
+      // endcase
+      if ( i < 10 ) buff[i] = i+"0";
+      else          buff[i] = 8'b0;
     end
   end
 

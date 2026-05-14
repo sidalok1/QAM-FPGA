@@ -24,10 +24,11 @@ module Radio(
     parameter symb_frac = 12;
     parameter clk_freq = 100_000_000;
     parameter spl_rate = 5_000_000;
-    parameter carrier_frq = 1_000_000;
+    parameter carrier_frq_tx = 1_000_000;
+    parameter carrier_frq_rx = carrier_frq_tx;
     parameter baud_rate = 50_000;
-    parameter order = 4;
-    parameter uart_baud = 1_000_000;
+    parameter order = 16;
+    parameter uart_baud = 115200;
     
     
 
@@ -164,7 +165,7 @@ module Radio(
         .DWIDTH(symb_width),
         .DFRAC(symb_frac),
         .SAMPLE_RATE(spl_rate),
-        .CARRIER_FRQ(carrier_frq)
+        .CARRIER_FRQ(carrier_frq_tx)
     ) cordic_modulator (
         .clk(clk),
         .rst(rst_debounce),
@@ -175,10 +176,38 @@ module Radio(
         .passband(mod_out)
     );
 
-    wire signed [symb_width+16:0] amp_out;
+    wire new_dac_sample;
+    clockdiv #(
+        .I_CLK_FRQ(clk_freq),
+        .FREQUENCY(20_000_000)
+    ) dac_sample_rate_generator (
+        .rst(rst_debounce),
+        .en(en),
+        .i_clk(clk),
+        .o_clk(new_dac_sample)
+    );
+
+    reg [7:0] dac_data = 0;
+
+    // wire signed [symb_width-1:0] mod_upsampled;
+    // PolyphaseFilterUp #(
+    //     .DWIDTH(symb_width),
+    //     .DFRAC(symb_frac),
+    //     .ORDER(20),
+    //     .COEFILE("tx_fir.mem"),
+    //     .UP(4),
+    //     .PIPELEN(1)
+    // ) tx_interpolation_filter (
+    //     .clk(clk), .en(en), .rst(rst_debounce),
+    //     .new_sample(new_dac_sample),
+    //     .in_sample(mod_out[symb_width:1]),
+    //     .out_sample(mod_upsampled)
+    // );
+
+    wire signed [symb_width+15:0] amp_out;
     localparam reg signed [15:0] gain = $rtoi(1.5 * 2**8);
     PipeMult #(
-        .WIDTH_A(symb_width+1),
+        .WIDTH_A(symb_width),
         .WIDTH_B(16)
     ) amplifier (
         .clk(clk), .en(en), .rst(rst_debounce),
@@ -186,8 +215,8 @@ module Radio(
         .r(amp_out)
     );
 
-    reg [7:0] dac_data = 0;
     always @ ( posedge clk ) dac_data = (amp_out >>> (symb_width)) + 8'h80;
+    // always @ ( posedge clk ) dac_data = (mod_upsampled >>> (symb_width-8)) + 8'h80;
     assign dac = dac_data;
     
     
@@ -214,7 +243,7 @@ module Radio(
     IIR #(
         .DWIDTH(symb_width),
         .DFRAC(symb_frac),
-        .SOS(5),
+        .SOS(4),
         .COEFFICIENTS("rx_iir.mem")
     ) rx_filter (
         .clk(clk),
@@ -225,12 +254,24 @@ module Radio(
         .filt_out(rx_filt_out)
     );
 
+    // FIR #(
+    //     .DWIDTH(symb_width),
+    //     .DFRAC(symb_frac),
+    //     .ORDER(15),
+    //     .TAPS_FILE("rx_fir.mem")
+    // ) dc_block (
+    //     .clk(clk), .en(en), .rst(rst_debounce),
+    //     .new_sample(new_sample),
+    //     .filt_in(rx_signal),
+    //     .filt_out(rx_filt_out)
+    // );
+
 
     signal_detector #(
         .SYMBOL_WIDTH(symb_width),
         .SYMBOL_FRAC(symb_frac),
         .N(64),
-        .dB_THRESH(-40)
+        .dB_THRESH(-30)
     ) signal_power_detector (
         .clk(clk), .en(en), .rst(rst_debounce),
         .new_sample(new_sample),
@@ -251,7 +292,7 @@ module Radio(
         .DWIDTH(symb_width),
         .DFRAC(symb_frac),
         .SAMPLE_RATE(spl_rate),
-        .CARRIER_FRQ(carrier_frq)
+        .CARRIER_FRQ(carrier_frq_rx)
     ) cordic_demodulator (
         .clk(clk), .en(en), .rst(rst_debounce),
         .new_sample(new_sample),

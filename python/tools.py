@@ -261,7 +261,7 @@ def gen_rand_symbols(S: np.ndarray, N: int) -> np.ndarray:
   """
   return np.random.choice(S, N)
 
-def min_dist_detection(y: np.ndarray, S: np.ndarray) -> np.ndarray:
+def min_dist_detection(y: np.ndarray, S: np.ndarray, phase_offsets: bool = False) -> np.ndarray | tuple[np.ndarray, bool]:
   """
   Returns array of symbols nearest to those in y elementwise.
 
@@ -280,7 +280,13 @@ def min_dist_detection(y: np.ndarray, S: np.ndarray) -> np.ndarray:
   """
   differences = y[:,np.newaxis] - S
   distances = np.abs(differences)
-  return S[np.argmin(distances, axis=1)]
+  min_dist_idx = np.argmin(distances, axis=1)
+  min_dist_symbols = S[min_dist_idx]
+  if phase_offsets:
+    min_phase_offsets = np.angle(y) - np.angle(min_dist_symbols)
+    return min_dist_symbols, min_phase_offsets
+  else:
+    return min_dist_symbols
 
 def awgn_ml_detection(z, S):
   # In AWGN has the same outcome as min_dist_detection
