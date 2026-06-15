@@ -34,3 +34,94 @@ module PipeMult
     end
 
 endmodule
+
+module PipeMultC #(
+    parameter DWIDTH = 20,
+    parameter DFRAC = 16,
+    parameter PIPELEN = 10
+)
+(
+    input wire clk, rst, en,
+    input wire signed [DWIDTH-1:0] x_r, x_i, y_r, y_i,
+    output wire signed [DWIDTH-1:0] z_r, z_i
+);
+    initial if ( PIPELEN < 3 ) $error("Complex multiplier was given %d stages when at least 3 were needed", PIPELEN);
+    reg signed [DWIDTH-1:0] x_r_n = 0, x_i_n = 0, y_i_n = 0;
+    reg signed [DWIDTH-1:0] x_dif = 0, y_dif = 0, y_sum = 0;
+    reg signed [(DWIDTH*2)-1:0] xr_prod = 0, xi_prod = 0, yi_prod = 0;
+    reg signed [DWIDTH-1:0] z_real = 0, z_imag = 0;
+
+    reg signed [DWIDTH-1:0] zr_pipe [0:PIPELEN-4], zi_pipe [0:PIPELEN-4];
+    integer i;
+    initial begin
+        for ( i = 0; i < PIPELEN - 3; i = i + 1 ) begin
+            zr_pipe[i] = 0;
+            zi_pipe[i] = 0;
+        end
+    end
+
+    assign z_r = zr_pipe[PIPELEN-4];
+    assign z_i = zi_pipe[PIPELEN-4];
+
+//    always @* begin
+//        // Make sure to enable global retiming in synthesis
+//        x_dif = x_r - x_i;
+//        y_dif = y_r - y_i;
+//        y_sum = y_r + y_i;
+
+//        xr_prod <= (x_r * y_dif);
+//        xi_prod <= (x_i * y_sum);
+//        yi_prod <= (y_i * x_dif);
+
+//        z_real <= (xr_prod >>> DFRAC) + (yi_prod >>> DFRAC);
+//        z_imag <= (xi_prod >>> DFRAC) + (yi_prod >>> DFRAC);
+//    end
+
+    always @ ( posedge clk ) begin
+        if ( rst ) begin
+            x_r_n <= 0;
+            x_i_n <= 0;
+            y_i_n <= 0;
+            x_dif <= 0;
+            y_dif <= 0;
+            y_sum <= 0;
+            xr_prod <= 0;
+            xi_prod <= 0;
+            yi_prod <= 0;
+            z_real <= 0;
+            z_imag <= 0;
+            for ( i = 0; i < PIPELEN - 3; i = i + 1 ) begin
+                zr_pipe[i] <= 0;
+                zi_pipe[i] <= 0;
+            end
+        end
+        else if ( en ) begin
+            // d0
+            x_r_n <= x_r;
+            x_i_n <= x_i;
+            y_i_n <= y_i;
+            
+            x_dif <= x_r - x_i;
+            y_dif <= y_r - y_i;
+            y_sum <= y_r + y_i;
+            
+            // d1
+            xr_prod <= x_r_n * y_dif;
+            xi_prod <= x_i_n * y_sum;
+            yi_prod <= y_i_n * x_dif;
+            
+            // d2
+            z_real <= (xr_prod >>> DFRAC) + (yi_prod >>> DFRAC);
+            z_imag <= (xi_prod >>> DFRAC) + (yi_prod >>> DFRAC);
+        
+            // d3+
+            zr_pipe[0] <= z_real;
+            zi_pipe[0] <= z_imag;
+            for ( i = 1; i < PIPELEN - 3; i = i + 1 ) begin
+                zr_pipe[i] <= zr_pipe[i-1];
+                zi_pipe[i] <= zi_pipe[i-1];
+            end
+        end
+    end
+
+endmodule

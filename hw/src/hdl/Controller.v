@@ -1,349 +1,493 @@
 module Controller
 #(
   //  Total word length of the output symbols
-  parameter SYMBOL_WIDTH                      = 16,
-  //  Length of the fractional portion of a signal
-  parameter SYMBOL_FRAC                       = 14,
+  parameter DWIDTH                          = 10,
+  parameter DFRAC                           = 8,
+  //  Number of symbols in constellation
+  parameter MODULATION_ORDER                = 4,
+  //  File containing constellation symbols in order,
+  parameter CONSTELLATION                   = "const.mem", 
+  parameter FRAME_SEQ                       = "zadoff_chu.mem",
   //  Output sample rate in hertz
-  parameter SAMPLE_RATE                       = 6_000_000,
+  parameter SAMPLE_RATE                     = 5_000_000,
+  parameter CLK_FREQ                        = 100_000_000,
   //  Symbol rate in hertz, together with last value determin sps
-  parameter SYMBOL_RATE                       = 50_000,
-  parameter SYNC_LEN                          = 32
+  parameter SYMBOL_RATE                     = 50_000,
+  parameter FRAME_LEN                       = 16,
+  parameter EQ_LEN                          = 18,
+  parameter UART_BAUD                       = 1_000_000
 )
 (
   //  Input clock, should be at the frequency specified by parameter
-  input wire                              clk,
+  input wire                                clk,
   //  General clocked logic enable signal
-  input wire                              en,
+  input wire                                en,
   //  Synchronous reset
-  input wire                              rst,
+  input wire                                rst,
   //  Signal to begin a transmission
-  input wire                              start,
-  input wire                              new_sample,
+  input wire                                start,
+  input wire                                new_sample,
+  input wire                                signal_detected,
   //  Output symbols in two's complement form at the requested sample rate
-  output reg signed [SYMBOL_WIDTH-1:0]    sample,
+  output wire signed [DWIDTH-1:0]           I, Q,
   
-  //  Axi stream ports
-  input wire [31:0]                       s_axis_tdata,
-//    input wire [3:0]                        s_axis_tkeep,
-  input wire                              s_axis_tlast,
-  input wire                              s_axis_tvalid,
-  output reg                              s_axis_tready,
-  
-  output reg [31:0]                       m_axis_tdata,
-//    output reg [3:0]                        m_axis_tkeep,
-  output reg                              m_axis_tlast,
-  output reg                              m_axis_tvalid,
-  input wire                              m_axis_tready,
-  
-  output reg                              interrupt,
+  input wire                                uart_rx,
+  output wire                               uart_tx,
+
+  output wire                               interrupt,
+  output wire                               tx_started,
   
   //  Controller also receives information from receiver hardware
-  input wire                              new_bit,
-  input wire                              rx_bit,
-  output reg                              msg_found,
-  output reg                              inv_msg_found
+  input wire [$clog2(MODULATION_ORDER)-1:0] rx_symbol,
+  input wire                                new_symbol
 );
-  //  Calculated bitlength of the symbol representing the nonfractional number
-  localparam SYMBOL_WHOLE     = SYMBOL_WIDTH - SYMBOL_FRAC;
-  //  Two's complement symbols parameterized to given bitwidths
-  localparam SYMBOL_ZERO      = {SYMBOL_WIDTH{1'b0}};
-  localparam SYMBOL_ONE       = {{SYMBOL_WHOLE-1{1'b0}}, 1'b1, {SYMBOL_FRAC{1'b0}}};
-  localparam SYMBOL_NEG_ONE   = {{SYMBOL_WHOLE{1'b1}}, {SYMBOL_FRAC{1'b0}}};
   
-  initial begin
-    sample          = SYMBOL_ZERO;
-    msg_found       = 0;
-    inv_msg_found   = 0;
-    s_axis_tready = 0;
-    m_axis_tdata = 0;
-//        m_axis_tkeep = 0;
-    m_axis_tlast = 0;
-    m_axis_tvalid = 0;
-    interrupt = 0;
-  end
-  /*
-      Memory containing the output message in ascii. This is hard coded but obviously
-      this will ideally not be the case in the future. Should be (relatively) trivial
-      to change this to arbitrary messages. Doing so is out of the scope of this demo
-  */
-  localparam MAX_STR_LEN                  = 256;
-  localparam STR_BITS                     = MAX_STR_LEN * 8;
-  reg [0:STR_BITS-1] message_buffer       = 0;
-  reg [7:0] tx_len                        = 0;
-  // Maximum value of idx before state should change
-  reg [10:0] idx_max_val;
-  /*
-      Presently the matlab simulation uses a message length field to indicate how
-      long the message is. I am leaning toward changing this to a simple barker
-      code at the start and end of the message. The current approach requires the
-      receiver to lock on to the message by the first barker code in order to know
-      when it has received the full message (and can stop listening). Barker codes at
-      either end make it so that the receiver only needs to locked on by the end of
-      the message to know when to stop listening (if the start and stop codes are
-      different). This does add the complexity that we must worry about the stop code
-      appearing in the message.
-  */
-  localparam reg [0:10] start_code  = 11'b11100010010;
+  TX_Controller #(
+    .DWIDTH(DWIDTH),
+    .DFRAC(DFRAC),
+    .MODULATION_ORDER(MODULATION_ORDER),
+    .CONSTELLATION(CONSTELLATION),
+    .FRAME_SEQ(FRAME_SEQ),
+    .SAMPLE_RATE(SAMPLE_RATE),
+    .CLK_FREQ(CLK_FREQ),
+    .SYMBOL_RATE(SYMBOL_RATE),
+    .FRAME_LEN(FRAME_LEN),
+    .EQ_LEN(EQ_LEN),
+    .UART_BAUD(UART_BAUD)
+  ) transmit_controller (
+    .clk(clk), .en(en), .rst(rst),
+    .start(start),
+    .new_sample(new_sample),
+    .signal_detected(signal_detected),
+    .I(I), .Q(Q),
+    .uart_rx(uart_rx),
+    .interrupt(tx_started)
+  );
+
+  RX_Controller #(
+    .MODULATION_ORDER(MODULATION_ORDER),
+    .CLK_FREQ(CLK_FREQ),
+    .UART_BAUD(UART_BAUD)
+  ) receive_controller (
+    .clk(clk), .en(en), .rst(rst),
+    .uart_tx(uart_tx),
+    .interrupt(interrupt),
+    .rx_symbol(rx_symbol),
+    .new_symbol(new_symbol)
+  );
+
+endmodule
+
+module TX_Controller #(
+  parameter DWIDTH                          = 10,
+  parameter DFRAC                           = 8,
+  parameter MODULATION_ORDER                = 4,
+  parameter CONSTELLATION                   = "const.mem", 
+  parameter FRAME_SEQ                       = "zadoff_chu.mem",
+  parameter SAMPLE_RATE                     = 5_000_000,
+  parameter CLK_FREQ                        = 100_000_000,
+  parameter SYMBOL_RATE                     = 50_000,
+  parameter FRAME_LEN                       = 16,
+  parameter EQ_LEN                          = 16,
+  parameter UART_BAUD                       = 1115200
+)
+(
+  input wire                                clk,
+  input wire                                en,
+  input wire                                rst,
+  input wire                                start,
+  input wire                                new_sample,
+  input wire                                signal_detected,
+  output reg signed [DWIDTH-1:0]            I, Q,
+  
+  input wire                                uart_rx,
+
+  output reg                                interrupt
+);
+  localparam BITS_PER_SYMBOL = $clog2(MODULATION_ORDER);
+  localparam MAX_BYTES = 256;
+  localparam MAX_BITS = MAX_BYTES * 8;
+  localparam MAX_SYMBOLS = MAX_BITS / BITS_PER_SYMBOL;
+  localparam MSG_LEN_LEN = ($clog2(MAX_SYMBOLS)/BITS_PER_SYMBOL) + 1;
+
+  integer i;
+
+  reg [7:0] buff [0:MAX_BYTES-1];
+  reg [(BITS_PER_SYMBOL*MSG_LEN_LEN)-1:0] msg_len;
+  reg [$clog2(MAX_BYTES)-1:0] bytes;
+  
+  
+  localparam RE = 0;
+  localparam IM = 1;
+  reg [DWIDTH-1:0] const [0:(MODULATION_ORDER*2)-1];
+  reg [DWIDTH-1:0] frame_header [0:(FRAME_LEN*2)-1];
+
   
   //  Symbols per sample
-  localparam integer SPS                  = SAMPLE_RATE / SYMBOL_RATE;
+  localparam SPS                  = SAMPLE_RATE / SYMBOL_RATE;
   
   //  General registers used for counting indices
-  reg [10:0] idx                          = 0;
-  reg [$clog2(SPS)-1:0] jdx               = 0;
+  integer idx;
+  integer jdx;
+  integer kdx;
   
   // FSM state register and state definitions
-  localparam tx_STATES                    = 7;
-  localparam [tx_STATES-1:0] IDLE         = 'b0000001;
-  localparam [tx_STATES-1:0] AXI_RX       = 'b1000000;
-  localparam [tx_STATES-1:0] PRESYNC      = 'b0000010;
-  localparam [tx_STATES-1:0] STARTCODE    = 'b0000100;
-  localparam [tx_STATES-1:0] MSGLEN       = 'b0001000;
-  localparam [tx_STATES-1:0] MSGBODY      = 'b0010000;
-  localparam [tx_STATES-1:0] POSTSYNC     = 'b0100000;
-  reg [tx_STATES-1:0] tx_state            = IDLE;
-  
-  // Below are combinational block variables used on rhs in clocked block
-  // What sample should register on the sample clock
-  reg [SYMBOL_WIDTH-1:0] sample_select;
-  // Combinational assignment of next state value
-  reg [tx_STATES-1:0] tx_next, axi_next = IDLE;
-  
-  localparam rx_STATES                    = 4;
-  localparam [rx_STATES-1:0] DETECT       = 4'b0001;
-  localparam [rx_STATES-1:0] READLEN      = 4'b0010;
-  localparam [rx_STATES-1:0] READBODY     = 4'b0100;
-  localparam [rx_STATES-1:0] AXI_TX       = 4'b1000;
-  reg [rx_STATES-1:0] rx_state            = DETECT;
+  localparam STATES                     = 6;
+  localparam [STATES-1:0] UART_RX       = 'b000001;
+  localparam [STATES-1:0] WAIT          = 'b000010;
+  localparam [STATES-1:0] PRESYNC       = 'b000100;
+  localparam [STATES-1:0] STARTCODE     = 'b001000;
+  localparam [STATES-1:0] MSGLEN        = 'b010000;
+  localparam [STATES-1:0] MSGBODY       = 'b100000;
+  reg [STATES-1:0] state;
 
-  reg invert = 0;
-  wire in_bit = invert == 1 ? ~rx_bit : rx_bit;
+  wire [7:0] uart_rx_data;
+  wire uart_valid;
+
+  uartrx #(
+    .I_CLK_FRQ(CLK_FREQ),
+    .BAUD(UART_BAUD),
+    .PARITY(0),
+    .FRAME(8),
+    .STOP(1)
+  ) uart_receiver (
+    .clk(clk), .en(en), .rst(rst),
+    .rx(uart_rx), 
+    .rx_data(uart_rx_data),
+    .valid(uart_valid)
+  );
+
+  reg [BITS_PER_SYMBOL-1:0] symb;
   
-  localparam reg [12:0] WRAP_HEADER = 13'b1111100110101;
-  reg [12:0] code           = 0;
-  
-  reg [7:0] rx_len              = 0;
-  reg [7:0] rx_buffer [0:255];
-  
-  integer i = 0;
   initial begin
-      for ( i = 0; i < 256; i = i + 1 ) begin
-          rx_buffer[i] = 0;
-      end
+    I               = 0;
+    Q               = 0;
+    interrupt       = 0;
+    state           = UART_RX;
+    idx             = 0;
+    jdx             = 0;
+    kdx             = 0;
+    symb            = 0;
+    $readmemb(CONSTELLATION, const);
+    $readmemb(FRAME_SEQ, frame_header);
+    bytes = 0;
+    msg_len = (10*8)/BITS_PER_SYMBOL; 
+    for ( i = 0; i < MAX_BYTES; i = i + 1 ) begin
+      // case ( i ) 
+      // 0:        buff[i] = "h";
+      // 1:        buff[i] = "i";
+      // default:  buff[i] = 8'b0;
+      // endcase
+      if ( i < 10 ) buff[i] = i+"0";
+      else          buff[i] = 8'b0;
+    end
   end
+
+  localparam [DWIDTH-1:0] ONE = 2**DFRAC;
   
-  reg write_to_buffer                     = 0;
-  reg [7:0] rx_byte                       = 0;
-  reg [7:0] kdx = 0, hdx = 0;
-  
-  always @ ( posedge clk )
-  if ( rst ) begin
-      tx_state <= IDLE;
-      idx <= 0;
-      jdx <= 0;
-      sample <= SYMBOL_ZERO;
+  always @ ( posedge clk ) begin
+    if ( rst ) begin
+        state <= UART_RX;
+        // buffer <= {"hello world!\n", {(STR_BITS-(13*8)){1'b0}}};
+        // msg_len <= (13*8)/BITS_PER_SYMBOL;
+        idx <= 0;
+        jdx <= 0;
+        kdx <= 0;
+        bytes <= 0;
+        I <= 0;
+        Q <= 0;
+        symb <= 0;
+        interrupt <= 0;
+    end 
+    else if ( en ) begin
       interrupt <= 0;
-//        rx_state <= DETECT;
-  end else
-  if ( en ) begin
-    s_axis_tready <= 0;
-    case ( tx_state )
-      IDLE: begin
-        if ( s_axis_tvalid ) begin
-          tx_state <= AXI_RX;
-          axi_next <= PRESYNC;
-          idx <= 0;
-          jdx <= 0;
-          s_axis_tready <= 1;
-          tx_len <= 0;
+
+      case ( state )
+      UART_RX: begin
+        if ( new_sample ) begin
+          I <= 0;
+          Q <= 0;
+        end
+        if ( uart_valid ) begin
+          case ( uart_rx_data )
+          8'o012,
+          8'o015: begin // enter keys
+            if ( bytes > 0 ) begin
+              state <= WAIT;
+              jdx <= idx;
+              bytes <= 0;
+              msg_len <= (bytes*8) / BITS_PER_SYMBOL;
+            end
+          end
+          // backspace
+          8'o010: begin
+            bytes <= ( bytes == 0 ) ? 0 : bytes - 1;
+          end
+          default: begin
+            // buffer[(bytes*8)+:8] <= uart_rx_data;
+            buff[bytes] <= uart_rx_data;
+            bytes <= ( bytes == MAX_BYTES - 1 ) ? MAX_BYTES - 1 : bytes + 1;
+          end
+          endcase
+        end
+        else if ( start ) begin
+          jdx <= idx;
+          state <= WAIT;
         end
       end
-      PRESYNC,
-      STARTCODE,
-      MSGLEN,
-      MSGBODY,
-      POSTSYNC: begin
+      WAIT: begin
         if ( new_sample ) begin
-          sample <= sample_select;
-          if ( idx == idx_max_val && jdx == SPS - 1 ) begin
-            idx <= 0;
+          I <= 0;
+          Q <= 0;
+          if ( idx == 0 ) begin
             jdx <= 0;
-            tx_state <= tx_next;
-            if ( tx_next == AXI_RX ) begin
-              axi_next <= STARTCODE;
-              s_axis_tready <= 1;
-              tx_len <= 0;
-            end
-          end else
+            interrupt <= 1;
+            state <= PRESYNC;
+          end 
+          else if ( signal_detected == 1'b0 ) begin
+            idx <= idx - 1;  
+          end
+          else begin
+            idx <= jdx;
+          end
+        end
+      end
+      PRESYNC: begin
+        if ( new_sample ) begin
+          I <= ONE;
+          Q <= 0;
           if ( jdx == SPS - 1 ) begin
-            idx <= idx + 1;
             jdx <= 0;
-          end else begin
+            if ( idx == EQ_LEN - 1 ) begin
+              idx <= 0;
+              state <= STARTCODE;
+            end
+            else begin
+              idx <= idx + 1;
+            end
+          end
+          else begin
             jdx <= jdx + 1;
           end
-        end            
+        end
       end
-      AXI_RX: begin
-        s_axis_tready <= 1;
-        if ( s_axis_tvalid ) begin
-          message_buffer[(tx_len*8)+:8] <= s_axis_tdata[7:0];
-          tx_len <= tx_len + 1;
-          if ( s_axis_tlast ) begin
-            tx_state <= axi_next;
-            s_axis_tready <= 0;
+      STARTCODE: begin
+        if ( new_sample ) begin
+          if ( idx < FRAME_LEN ) begin
+            I <= frame_header[(idx*2)];
+            Q <= frame_header[(idx*2)+1];
+          end
+          else begin
+              I <= 0;
+              Q <= 0;
+          end
+          if ( jdx == SPS - 1 ) begin
+            jdx <= 0;
+            if ( idx == FRAME_LEN ) begin
+              idx <= 0;
+              kdx <= 0;
+              state <= MSGLEN;
+            end
+            else begin
+              idx <= idx + 1;
+            end
+          end
+          else begin
+            jdx <= jdx + 1;
           end
         end
       end
-    endcase
-    
-    msg_found <= 0;
-    inv_msg_found <= 0;
-    
-    write_to_buffer <= 0;
-    
-    m_axis_tvalid <= 0;
-    interrupt <= 0;
-    
-    case ( rx_state )
-      DETECT: begin
-          if ( new_bit ) begin
-            code[0] <= rx_bit;
-            code[12:1] <= code[11:0];
-          end
-          if ( code[10:0] == start_code ) begin
-            code <= 0;
-            msg_found <= 1;
-            invert <= 0;
-            rx_state <= READLEN;
-          end else
-          if ( code[10:0] == ~start_code ) begin
-            code <= 0;
-            inv_msg_found <= 1;
-            invert <= 1;
-            rx_state <= READLEN;
-          end else
-          if ( code == WRAP_HEADER ) begin
-            code <= 0;
-            msg_found <= 1;
-            invert <= 0;
-            rx_state <= READBODY;
-            rx_len <= 8'd6;
-          end else
-          if ( code == ~WRAP_HEADER ) begin
-            code <= 0;
-            inv_msg_found <= 1;
-            invert <= 1;
-            rx_state <= READBODY;
-            rx_len <= 8'd6;
-          end
-          kdx <= 0;
-      end
-      READLEN: begin
-          if ( new_bit ) begin
-            rx_len[0] <= in_bit;
-            rx_len[7:1] <= rx_len[6:0];
-            
-            if ( kdx == 7 ) begin
+      MSGLEN: begin
+        if ( kdx < ((idx+1)*BITS_PER_SYMBOL) ) begin
+          symb[kdx % BITS_PER_SYMBOL] <= msg_len[kdx];
+          kdx <= kdx + 1;
+        end
+        if ( new_sample ) begin
+          I <= const[(symb*2)];
+          Q <= const[(symb*2)+1];
+          if ( jdx == SPS - 1 ) begin
+            jdx <= 0;
+            if ( idx == MSG_LEN_LEN - 1 ) begin
+              idx <= 0;
               kdx <= 0;
-              hdx <= 0;
-              rx_state <= READBODY;
-            end else begin
+              state <= MSGBODY;
+            end
+            else begin
+              idx <= idx + 1;
+            end
+          end
+          else begin
+            jdx <= jdx + 1;
+          end
+        end
+      end
+      MSGBODY: begin
+        if ( kdx < ((idx+1)*BITS_PER_SYMBOL) ) begin
+          symb[kdx%BITS_PER_SYMBOL] <= buff[kdx/8][kdx%8];
+          kdx <= kdx + 1;
+        end
+        if ( new_sample ) begin
+          // I <= const[(buffer[(idx*BITS_PER_SYMBOL)+:BITS_PER_SYMBOL]*2)];
+          // Q <= const[(buffer[(idx*BITS_PER_SYMBOL)+:BITS_PER_SYMBOL]*2)+1];
+          I <= const[(symb*2)];
+          Q <= const[(symb*2)+1];
+          if ( jdx == SPS - 1 ) begin
+            jdx <= 0;
+            if ( idx == msg_len - 1 ) begin
+              kdx <= 0;
+              state <= UART_RX;
+              idx <= 2048; // number of samples to wait before transmitting again
+            end
+            else begin
+              idx <= idx + 1;
+            end
+          end
+          else begin
+            jdx <= jdx + 1;
+          end
+        end
+      end
+      default: begin
+        // illegal state
+        state <= UART_RX;
+      end
+      endcase
+    end
+  end
+endmodule
+
+module RX_Controller #(
+  parameter MODULATION_ORDER                = 4,
+  parameter CLK_FREQ                        = 100_000_000,
+  parameter UART_BAUD                       = 1115200
+)
+(
+  input wire                                clk,
+  input wire                                en,
+  input wire                                rst,
+  
+  output wire                               uart_tx,
+
+  output reg                                interrupt,
+  
+  //  Controller also receives information from receiver hardware
+  input wire [$clog2(MODULATION_ORDER)-1:0] rx_symbol,
+  input wire                                new_symbol
+);
+
+  initial interrupt = 0;
+
+  localparam BITS_PER_SYMBOL = $clog2(MODULATION_ORDER);
+
+  reg [BITS_PER_SYMBOL-1:0] symbol_in = 0;
+
+  localparam MAX_BYTES = 256;
+  localparam MAX_BITS = MAX_BYTES * 8;
+  localparam MAX_SYMBOLS = MAX_BITS / BITS_PER_SYMBOL;
+  localparam MSG_LEN_LEN = ($clog2(MAX_SYMBOLS)/BITS_PER_SYMBOL) + 1;
+
+
+  reg [7:0] uart_tx_data = 0;
+  reg uart_tx_en = 0;
+  wire uart_busy;
+
+  
+  uarttx #(
+    .I_CLK_FRQ(CLK_FREQ),
+    .BAUD(UART_BAUD),
+    .PARITY(0),
+    .FRAME(8),
+    .STOP(1)
+  ) uart_transmitter (
+    .clk(clk), .rst(rst), .en(uart_tx_en),
+    .i_data(uart_tx_data),
+    .tx(uart_tx),
+    .busy(uart_busy)
+  );
+
+  localparam STATES                     = 3;
+  localparam [STATES-1:0] READLEN       = 3'b001;
+  localparam [STATES-1:0] READBODY      = 3'b010;
+  localparam [STATES-1:0] UART_TX       = 3'b100;
+  reg [STATES-1:0] state                = READLEN;
+
+  
+  reg [(BITS_PER_SYMBOL*MSG_LEN_LEN)-1:0] msg_len  = 0;
+  wire [$clog2(MAX_BYTES)-1:0] bytes;
+  assign bytes = (msg_len*BITS_PER_SYMBOL) / 8;
+  // reg [0:STR_BITS-1] buffer = 0;
+  reg [7:0] buff [0:MAX_BYTES-1];
+  integer i;
+  initial for ( i = 0; i < MAX_BYTES; i = i + 1 ) begin
+    buff[i] = 0;
+  end
+  
+  integer kdx = 0;
+
+  always @ ( posedge clk ) begin
+    if ( rst ) begin
+        interrupt <= 0;
+        kdx <= 0;
+        uart_tx_en <= 0;
+        uart_tx_data <= 0;
+        // buffer <= 0;
+        msg_len <= 0;
+        state <= READLEN;
+        symbol_in <= 0;
+    end 
+    else if ( en ) begin
+      uart_tx_en <= 0;
+      interrupt <= 0;
+      symbol_in <= rx_symbol;
+      case ( state )
+      READLEN: begin
+          if ( new_symbol ) begin
+            msg_len[(kdx*BITS_PER_SYMBOL)+:BITS_PER_SYMBOL] <= rx_symbol;
+            if ( kdx == MSG_LEN_LEN - 1 ) begin
+              state <= READBODY;
+              kdx <= 0;
+            end
+            else begin
               kdx <= kdx + 1;
             end
           end
       end
       READBODY: begin
-        if ( new_bit ) begin
-          rx_byte[0] <= in_bit;
-          rx_byte[7:1] <= rx_byte[6:0];
-          
-          if ( kdx == 7 ) begin
+        if ( new_symbol ) begin
+          // buffer[(kdx*BITS_PER_SYMBOL)+:BITS_PER_SYMBOL] <= rx_symbol;
+          buff[(kdx*BITS_PER_SYMBOL)/8][(kdx*BITS_PER_SYMBOL)%8+:BITS_PER_SYMBOL] <= rx_symbol;
+          if ( kdx == msg_len - 1 ) begin
+            interrupt <= 1;
+            state <= UART_TX;
             kdx <= 0;
-            write_to_buffer <= 1; // goes low ever other possible cycle
-          end else begin
+          end
+          else begin
             kdx <= kdx + 1;
           end
         end
-          
-        if ( write_to_buffer ) begin
-          rx_buffer[hdx] <= rx_byte;
-          if ( hdx == rx_len - 1 ) begin
-            hdx <= 0;
-            kdx <= 0;
-            rx_state <= AXI_TX;
-            interrupt <= 1;
-          end else begin
-            hdx <= hdx + 1;
-          end
-        end
       end
-      AXI_TX: begin
-        m_axis_tvalid <= 1;
-        if ( m_axis_tready && m_axis_tvalid ) begin
-          m_axis_tvalid <= ( hdx == rx_len ) ? 0 : 1;
-          m_axis_tdata <=  ( hdx == rx_len ) ? 32'b0 : {24'b0, rx_buffer[hdx]};
-          m_axis_tlast <=  ( hdx == rx_len - 1 ) ? 1 : 0;   
-          hdx <=           ( hdx == rx_len ) ? 0 : hdx + 1;
-          rx_state <=      ( hdx == rx_len ) ? DETECT : AXI_TX;
+      UART_TX: begin
+        if ( !uart_busy && !uart_tx_en ) begin
+          uart_tx_en <= 1;
+          // uart_tx_data <= ( kdx == bytes ) ? "\n" : buffer[kdx*8 +: 8];
+          uart_tx_data <= ( kdx == bytes ) ? "\n" : buff[kdx];
+          state <=     ( kdx == bytes ) ? READLEN : UART_TX;
+          kdx <=          ( kdx == bytes ) ? 0 : kdx + 1;
         end
+        // m_axis_tvalid <= 1;
+        // if ( m_axis_tready && m_axis_tvalid ) begin
+        //   m_axis_tvalid <= ( kdx == bytes ) ? 0 : 1;
+        //   m_axis_tdata <=  ( kdx == bytes ) ? 32'b0 : {24'b0, buffer[kdx*8 +: 8]};
+        //   m_axis_tlast <=  ( kdx == bytes - 1 ) ? 1 : 0;   
+        //   kdx <=           ( kdx == bytes ) ? 0 : kdx + 1;
+        //   state <=      ( kdx == bytes ) ? READLEN : AXI_TX;
+        // end
       end
-    endcase
-    
-    // msg_found <= ( code == start_code ) ? 1 : 0;
-    // inv_msg_found <= ( code == ~start_code ) ? 1 : 0;
+      default: begin
+        // illegal state
+        state <= READLEN;
+      end
+      endcase
+    end
   end
-  
-  reg [SYMBOL_WIDTH-1:0] current_symbol;
-  reg current_bit;
-  
-  always @* begin
-    case ( tx_state )
-    // The synchronization is a stream of ones and zeros, which aid both the
-    // costas loop and timing error detector.
-      PRESYNC: begin 
-        current_bit     = idx % 2;
-        idx_max_val     = SYNC_LEN - 1;
-        tx_next         = STARTCODE;
-      end            
-      STARTCODE: begin  
-        current_bit     = start_code[idx];
-        idx_max_val     = 10;
-        tx_next         = MSGLEN;
-      end
-      MSGLEN: begin
-        current_bit     = tx_len[7-idx];
-        idx_max_val     = 7;
-        tx_next         = MSGBODY;
-      end
-      MSGBODY: begin
-        current_bit     = message_buffer[idx];
-        idx_max_val     = (tx_len * 8) - 1;
-        tx_next         = POSTSYNC;
-      end
-      POSTSYNC: begin
-        current_bit     = idx % 2;
-        idx_max_val     = (SYNC_LEN/2) - 1;
-        if ( s_axis_tvalid ) begin
-          tx_next     = AXI_RX;
-        end else
-        if ( start ) begin
-          tx_next     = STARTCODE;
-        end else begin
-          tx_next         = IDLE;
-        end
-      end
-      default: begin   
-        current_bit     = 0;
-        idx_max_val     = 0;
-        tx_next         = IDLE;
-      end
-    endcase
-    current_symbol = ( current_bit == 0 ) ? SYMBOL_NEG_ONE : SYMBOL_ONE;
-    // Recall, for upsampling, a new symbol is added only every SPS, and
-    // otherwise is zero
-    sample_select = ( jdx == 0 ) ? current_symbol : SYMBOL_ZERO;
-      
-  end
-
 endmodule
